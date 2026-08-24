@@ -264,7 +264,7 @@
   .reader-top{display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--line);}
   .reader-title{font-family:var(--mono); font-size:12px; color:var(--teal); font-weight:600;}
   .reader-close{background:none; border:none; font-size:18px; color:var(--ink-soft); cursor:pointer; padding:2px 6px;}
-  .reader-canvas-wrap{flex:1; overflow:auto; background:var(--bg); display:flex; justify-content:center; padding:14px;}
+  .reader-canvas-wrap{flex:1; overflow:auto; background:var(--bg); display:flex; justify-content:center; padding:14px; position:relative;}
   .reader-canvas-wrap canvas{max-width:100%; height:auto; box-shadow:0 4px 16px rgba(0,0,0,.15); background:#fff;}
   .reader-controls{display:flex; align-items:center; justify-content:center; gap:14px; padding:12px; border-top:1px solid var(--line);}
   .reader-nav-btn{
@@ -274,6 +274,56 @@
   .reader-page-info{font-family:var(--mono); font-size:13px; color:var(--ink-soft); display:flex; align-items:center; gap:6px;}
   .reader-page-input{width:52px; font-family:var(--mono); font-size:13px; text-align:center; padding:5px; border:1px solid var(--line); border-radius:2px;}
   .reader-status{text-align:center; font-size:11.5px; color:var(--ink-soft); padding:0 12px 10px;}
+
+  .reader-tools{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .reader-pen{
+    width:24px; height:24px; border-radius:50%; border:2px solid var(--line); cursor:pointer; padding:0;
+    background-color:var(--pen-color, #ccc);
+  }
+  .reader-pen[data-color="red"]{--pen-color:#e05a4e;}
+  .reader-pen[data-color="yellow"]{--pen-color:#e8c547;}
+  .reader-pen[data-color="green"]{--pen-color:#5aa96c;}
+  .reader-pen[data-color="blue"]{--pen-color:#5aa9d6;}
+  .reader-pen[data-color="orange"]{--pen-color:#e8944a;}
+  .reader-pen.active{border-color:var(--teal-deep); box-shadow:0 0 0 2px var(--teal-deep);}
+  .reader-pen.eraser{background:var(--paper); color:var(--ink-soft); font-size:12px; line-height:1;}
+  .reader-pen.eraser.active{background:var(--red-bg); border-color:var(--red); color:var(--red);}
+  .reader-notes-btn{background:none; border:none; font-size:18px; cursor:pointer; padding:0 4px;}
+
+  .reader-notes-panel{display:none; gap:8px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--bg);}
+  .reader-notes-panel.open{display:flex;}
+  .reader-notes-panel textarea{flex:1; font-family:var(--sans); font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:2px; min-height:44px; resize:vertical;}
+
+  .reader-page-inner{position:relative; display:inline-block;}
+  .reader-text-layer{
+    position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden; line-height:1;
+    opacity:1; -webkit-user-select:text; user-select:text;
+  }
+  .reader-text-layer span{
+    position:absolute; white-space:pre; color:transparent; transform-origin:0% 0%; cursor:text;
+  }
+  .reader-text-layer span::selection{background:rgba(90,169,214,.35);}
+  ::highlight(hl-red){background-color:rgba(224,90,78,.45);}
+  ::highlight(hl-yellow){background-color:rgba(232,197,71,.55);}
+  ::highlight(hl-green){background-color:rgba(90,169,108,.4);}
+  ::highlight(hl-blue){background-color:rgba(90,169,214,.4);}
+  ::highlight(hl-orange){background-color:rgba(232,148,74,.45);}
+
+  .reader-sel-popup{
+    display:none; position:absolute; z-index:20; background:var(--teal-deep); border-radius:20px;
+    padding:6px 8px; gap:6px; align-items:center; box-shadow:0 6px 18px rgba(0,0,0,.3);
+  }
+  .reader-sel-popup.show{display:flex;}
+  .sel-color{width:20px; height:20px; border-radius:50%; border:1px solid rgba(255,255,255,.5); cursor:pointer; padding:0; background-color:var(--pen-color,#ccc);}
+  .sel-color[data-color="red"]{--pen-color:#e05a4e;}
+  .sel-color[data-color="yellow"]{--pen-color:#e8c547;}
+  .sel-color[data-color="green"]{--pen-color:#5aa96c;}
+  .sel-color[data-color="blue"]{--pen-color:#5aa9d6;}
+  .sel-color[data-color="orange"]{--pen-color:#e8944a;}
+  .sel-clarify{
+    font-family:var(--mono); font-size:11px; text-transform:uppercase; background:#fff; color:var(--teal-deep);
+    border:none; border-radius:14px; padding:6px 12px; cursor:pointer; white-space:nowrap;
+  }
 
   .log-form{display:flex; gap:8px; margin-bottom:16px;}
   .log-form textarea{
@@ -557,10 +607,34 @@
   <div class="reader-card">
     <div class="reader-top">
       <div class="reader-title" id="reader-title"></div>
+      <div class="reader-tools">
+        <button class="reader-pen" data-color="red" onclick="setReaderPen('red')" title="Красный"></button>
+        <button class="reader-pen" data-color="yellow" onclick="setReaderPen('yellow')" title="Жёлтый"></button>
+        <button class="reader-pen" data-color="green" onclick="setReaderPen('green')" title="Зелёный"></button>
+        <button class="reader-pen" data-color="blue" onclick="setReaderPen('blue')" title="Голубой"></button>
+        <button class="reader-pen" data-color="orange" onclick="setReaderPen('orange')" title="Оранжевый"></button>
+        <button class="reader-pen eraser" id="reader-eraser-btn" onclick="toggleReaderEraser()" title="Ластик">⌫</button>
+        <button class="reader-notes-btn" onclick="toggleReaderNotes()">📝</button>
+      </div>
       <button class="reader-close" onclick="closeReader()">✕</button>
     </div>
+    <div class="reader-notes-panel" id="reader-notes-panel">
+      <textarea id="reader-notes-input" placeholder="Скопируй текст из PDF или напиши заметку — упадёт в дневник сегодняшним числом"></textarea>
+      <button class="btn" onclick="saveReaderNote()">↵</button>
+    </div>
     <div class="reader-canvas-wrap" id="reader-canvas-wrap">
-      <canvas id="reader-canvas"></canvas>
+      <div class="reader-page-inner" id="reader-page-inner">
+        <canvas id="reader-canvas"></canvas>
+        <div class="reader-text-layer" id="reader-text-layer"></div>
+      </div>
+      <div class="reader-sel-popup" id="reader-sel-popup">
+        <button class="sel-color" data-color="red" onclick="applySelHighlight('red')"></button>
+        <button class="sel-color" data-color="yellow" onclick="applySelHighlight('yellow')"></button>
+        <button class="sel-color" data-color="green" onclick="applySelHighlight('green')"></button>
+        <button class="sel-color" data-color="blue" onclick="applySelHighlight('blue')"></button>
+        <button class="sel-color" data-color="orange" onclick="applySelHighlight('orange')"></button>
+        <button class="sel-clarify" onclick="clarifySelection()">Уточнить</button>
+      </div>
     </div>
     <div class="reader-controls">
       <button class="reader-nav-btn" onclick="readerPrev()">‹</button>
@@ -928,6 +1002,7 @@ let state = {
   log: {},        // ts -> {text}
   sessions: {},   // 'YYYY-MM-DD' -> [{min, moduleId, moduleName, pct, ts}]
   quizSessions: {}, // sessionId -> {ts, moduleId, moduleName, debrief}
+  pdfHighlights: {}, // '<sourceId>_p<page>' -> [{id, color, startItem, startOffset, endItem, endOffset, text}]
   targetDate: '',
   customSources: {}, // sourceId -> {name, modules}
   activeSourceId: 'firstaid',
@@ -1499,6 +1574,7 @@ function attachDbListener(){
     if(remote.log) deepMerge(state.log, remote.log);
     if(remote.sessions) deepMerge(state.sessions, remote.sessions);
     if(remote.quizSessions) deepMerge(state.quizSessions, remote.quizSessions);
+    if(remote.pdfHighlights) deepMerge(state.pdfHighlights, remote.pdfHighlights);
     if(remote.targetDate !== undefined) state.targetDate = remote.targetDate;
     if(remote.selectedModules !== undefined) state.selectedModules = remote.selectedModules;
     if(remote.customSources) deepMerge(state.customSources, remote.customSources);
@@ -2262,19 +2338,41 @@ function closeDayNote(){
 }
 
 /* ---------- PDF READER (real pages, no AI, no summarizing) ---------- */
+const READER_COLORS = ['red','yellow','green','blue','orange'];
+let readerHighlightSets = {};
+let readerHasHighlightAPI = !!(window.Highlight && CSS.highlights);
+if(readerHasHighlightAPI){
+  READER_COLORS.forEach(c=>{
+    const h = new Highlight();
+    readerHighlightSets[c] = h;
+    CSS.highlights.set('hl-'+c, h);
+  });
+}
 let readerPdfDoc = null;
 let readerSourceId = null;
+let readerModId = null;
 let readerCurrentPage = 1;
 let readerRendering = false;
+let readerPenColor = null;
+let readerEraserActive = false;
+let readerTextLayerOk = false;
+let currentReaderSelectionRange = null;
+let currentReaderSelectionText = '';
+
 async function openReader(modId){
   const mod = MODULES.find(m=>m.id===modId);
   const src = sources[activeSourceId];
   if(!mod || !src) return;
+  readerModId = modId;
   const statusEl = document.getElementById('reader-status');
   const overlay = document.getElementById('reader-overlay');
   document.getElementById('reader-title').textContent = mod.name;
   overlay.classList.add('show');
   statusEl.textContent = '';
+  readerPenColor = null;
+  readerEraserActive = false;
+  updatePenButtons();
+  hideSelPopup();
 
   if(!src.hasPdf){
     statusEl.textContent = uiLang==='ru' ? 'Для этого источника не был загружен PDF.' : 'No PDF was uploaded for this source.';
@@ -2302,14 +2400,29 @@ async function openReader(modId){
     statusEl.textContent = (uiLang==='ru'?'Ошибка чтения PDF: ':'Error reading PDF: ')+e.message;
   }
 }
+
+function pdfHighlightKey(){ return readerSourceId+'_p'+readerCurrentPage; }
+function getPageHighlights(){
+  if(!state.pdfHighlights) state.pdfHighlights = {};
+  const key = pdfHighlightKey();
+  if(!state.pdfHighlights[key]) state.pdfHighlights[key] = [];
+  return state.pdfHighlights[key];
+}
+function savePageHighlights(){
+  writeKey('pdfHighlights/'+pdfHighlightKey(), getPageHighlights());
+}
+
 async function renderReaderPage(num){
   if(!readerPdfDoc || readerRendering) return;
   readerRendering = true;
   readerCurrentPage = Math.min(Math.max(num,1), readerPdfDoc.numPages);
   document.getElementById('reader-page-input').value = readerCurrentPage;
+  hideSelPopup();
   const page = await readerPdfDoc.getPage(readerCurrentPage);
   const canvas = document.getElementById('reader-canvas');
   const wrap = document.getElementById('reader-canvas-wrap');
+  const inner = document.getElementById('reader-page-inner');
+  const textLayer = document.getElementById('reader-text-layer');
   const unscaledViewport = page.getViewport({scale:1});
   const dpr = window.devicePixelRatio || 1;
   const cssScale = Math.min((wrap.clientWidth-20) / unscaledViewport.width, 2.2);
@@ -2317,12 +2430,205 @@ async function renderReaderPage(num){
   const viewport = page.getViewport({scale: renderScale});
   canvas.width = viewport.width;
   canvas.height = viewport.height;
-  canvas.style.width = (viewport.width/dpr) + 'px';
-  canvas.style.height = (viewport.height/dpr) + 'px';
+  const cssW = viewport.width/dpr, cssH = viewport.height/dpr;
+  canvas.style.width = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  inner.style.width = cssW + 'px';
+  inner.style.height = cssH + 'px';
   const ctx = canvas.getContext('2d');
   await page.render({canvasContext: ctx, viewport}).promise;
+
+  // text layer (enables real text selection over the rendered page image)
+  readerTextLayerOk = false;
+  textLayer.innerHTML = '';
+  textLayer.style.width = cssW + 'px';
+  textLayer.style.height = cssH + 'px';
+  READER_COLORS.forEach(c=>{ if(readerHighlightSets[c]) readerHighlightSets[c].clear(); });
+  try{
+    const textContent = await page.getTextContent();
+    const cssViewport = page.getViewport({scale: cssScale});
+    if(pdfjsLib.renderTextLayer){
+      const task = pdfjsLib.renderTextLayer({textContentSource: textContent, container: textLayer, viewport: cssViewport});
+      await task.promise;
+      const spans = textLayer.querySelectorAll('span');
+      spans.forEach((sp,i)=>{ sp.dataset.itemIndex = i; });
+      readerTextLayerOk = true;
+      restorePageHighlights();
+    }
+  }catch(e){ console.error('text layer failed', e); readerTextLayerOk = false; }
+
   readerRendering = false;
 }
+
+function itemOffsetFromNode(node, offset){
+  const span = node.nodeType===3 ? node.parentElement : node;
+  if(!span || span.dataset.itemIndex===undefined) return null;
+  return {item: parseInt(span.dataset.itemIndex,10), offset};
+}
+function posLTE(a,b){ return a.item<b.item || (a.item===b.item && a.offset<=b.offset); }
+function spanTextNode(itemIndex){
+  const span = document.querySelector(`#reader-text-layer span[data-item-index="${itemIndex}"]`);
+  return span && span.firstChild ? span.firstChild : null;
+}
+function buildRangeFromRecord(rec){
+  const startNode = spanTextNode(rec.startItem);
+  const endNode = spanTextNode(rec.endItem);
+  if(!startNode || !endNode) return null;
+  try{
+    const range = document.createRange();
+    range.setStart(startNode, Math.min(rec.startOffset, startNode.length));
+    range.setEnd(endNode, Math.min(rec.endOffset, endNode.length));
+    return range;
+  }catch(e){ return null; }
+}
+function restorePageHighlights(){
+  if(!readerHasHighlightAPI) return;
+  getPageHighlights().forEach(rec=>{
+    const range = buildRangeFromRecord(rec);
+    if(range && readerHighlightSets[rec.color]) readerHighlightSets[rec.color].add(range);
+  });
+}
+
+function setReaderPen(color){
+  readerEraserActive = false;
+  readerPenColor = (readerPenColor === color) ? null : color;
+  updatePenButtons();
+}
+function toggleReaderEraser(){
+  readerPenColor = null;
+  readerEraserActive = !readerEraserActive;
+  updatePenButtons();
+}
+function updatePenButtons(){
+  document.querySelectorAll('.reader-pen[data-color]').forEach(b=>{
+    b.classList.toggle('active', b.dataset.color === readerPenColor);
+  });
+  const eraserBtn = document.getElementById('reader-eraser-btn');
+  if(eraserBtn) eraserBtn.classList.toggle('active', readerEraserActive);
+}
+
+function showSelPopup(range){
+  const popup = document.getElementById('reader-sel-popup');
+  const wrapRect = document.getElementById('reader-canvas-wrap').getBoundingClientRect();
+  const rect = range.getBoundingClientRect();
+  popup.style.left = Math.max(8, rect.left - wrapRect.left + document.getElementById('reader-canvas-wrap').scrollLeft) + 'px';
+  popup.style.top = (rect.top - wrapRect.top + document.getElementById('reader-canvas-wrap').scrollTop - 44) + 'px';
+  popup.classList.add('show');
+}
+function hideSelPopup(){
+  document.getElementById('reader-sel-popup').classList.remove('show');
+  currentReaderSelectionRange = null;
+  currentReaderSelectionText = '';
+}
+function applySelHighlight(color){
+  if(!currentReaderSelectionRange || !readerHasHighlightAPI) return;
+  const range = currentReaderSelectionRange;
+  const start = itemOffsetFromNode(range.startContainer, range.startOffset);
+  const end = itemOffsetFromNode(range.endContainer, range.endOffset);
+  if(!start || !end) return;
+  const rec = {id:'h_'+Date.now(), color, startItem:start.item, startOffset:start.offset, endItem:end.item, endOffset:end.offset, text: currentReaderSelectionText.slice(0,300)};
+  const list = getPageHighlights();
+  list.push(rec);
+  savePageHighlights();
+  readerHighlightSets[color].add(range.cloneRange());
+  const sel = window.getSelection();
+  if(sel) sel.removeAllRanges();
+  hideSelPopup();
+}
+function eraseHighlightAtPoint(x, y){
+  let caretRange = null;
+  if(document.caretRangeFromPoint) caretRange = document.caretRangeFromPoint(x, y);
+  else if(document.caretPositionFromPoint){
+    const pos = document.caretPositionFromPoint(x, y);
+    if(pos){ caretRange = document.createRange(); caretRange.setStart(pos.offsetNode, pos.offset); }
+  }
+  if(!caretRange) return;
+  const pt = itemOffsetFromNode(caretRange.startContainer, caretRange.startOffset);
+  if(!pt) return;
+  const list = getPageHighlights();
+  const idx = list.findIndex(rec => posLTE({item:rec.startItem,offset:rec.startOffset}, pt) && posLTE(pt, {item:rec.endItem,offset:rec.endOffset}));
+  if(idx === -1) return;
+  const rec = list[idx];
+  list.splice(idx,1);
+  savePageHighlights();
+  // rebuild this color's set for the page (simplest reliable way to remove one range)
+  if(readerHighlightSets[rec.color]) readerHighlightSets[rec.color].clear();
+  READER_COLORS.forEach(c=>{ if(readerHighlightSets[c]) readerHighlightSets[c].clear(); });
+  restorePageHighlights();
+}
+
+function handleReaderSelectionEnd(evt){
+  if(!readerTextLayerOk) return;
+  const sel = window.getSelection();
+  if(!sel || sel.isCollapsed || !sel.rangeCount){ hideSelPopup(); return; }
+  const range = sel.getRangeAt(0);
+  const layer = document.getElementById('reader-text-layer');
+  if(!layer.contains(range.commonAncestorContainer)){ return; }
+  currentReaderSelectionRange = range.cloneRange();
+  currentReaderSelectionText = sel.toString();
+  if(readerPenColor){
+    applySelHighlight(readerPenColor);
+    return;
+  }
+  showSelPopup(range);
+}
+document.addEventListener('mouseup', e=>{
+  if(document.getElementById('reader-overlay').classList.contains('show')){
+    if(readerEraserActive && e.target.closest('#reader-text-layer')){
+      eraseHighlightAtPoint(e.clientX, e.clientY);
+      return;
+    }
+    handleReaderSelectionEnd(e);
+  }
+});
+document.addEventListener('touchend', e=>{
+  if(document.getElementById('reader-overlay').classList.contains('show')){
+    setTimeout(()=>handleReaderSelectionEnd(e), 30);
+  }
+});
+
+function clarifySelection(){
+  if(!currentReaderSelectionText) return;
+  const text = currentReaderSelectionText;
+  hideSelPopup();
+  const sel = window.getSelection();
+  if(sel) sel.removeAllRanges();
+  currentTutorModuleId = readerModId || '__general__';
+  tutorOpen = true;
+  panelTab = 'tutor';
+  document.body.classList.add('tutor-sheet-open');
+  document.body.classList.add('tutor-open');
+  renderGlobalTutor();
+  const panel = document.getElementById('tutor-panel');
+  if(panel) panel.classList.add('open');
+  const prompt = uiLang==='ru'
+    ? `Объясни подробно вот этот фрагмент из источника: "${text}"`
+    : `Please explain this excerpt from the source in detail: "${text}"`;
+  sendTutorText(currentTutorModuleId, prompt);
+}
+
+function toggleReaderNotes(){
+  document.getElementById('reader-notes-panel').classList.toggle('open');
+}
+function saveReaderNote(){
+  const ta = document.getElementById('reader-notes-input');
+  const text = ta.value.trim();
+  if(!text) return;
+  const ts = Date.now();
+  if(!state.log) state.log = {};
+  state.log[ts] = {text};
+  writeKey('log/'+ts, {text});
+  ta.value = '';
+  renderLog();
+  renderCalendar();
+}
+document.addEventListener('keydown', e=>{
+  if(e.target && e.target.id === 'reader-notes-input' && e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    saveReaderNote();
+  }
+});
+
 function readerPrev(){ if(readerCurrentPage>1) renderReaderPage(readerCurrentPage-1); }
 function readerNext(){ if(readerPdfDoc && readerCurrentPage<readerPdfDoc.numPages) renderReaderPage(readerCurrentPage+1); }
 function readerJump(val){
@@ -2331,6 +2637,8 @@ function readerJump(val){
 }
 function closeReader(){
   document.getElementById('reader-overlay').classList.remove('show');
+  document.getElementById('reader-notes-panel').classList.remove('open');
+  hideSelPopup();
 }
 
 function renderLog(){
