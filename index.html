@@ -153,10 +153,22 @@
 
   .setup-box{background:var(--amber-bg); border:1px solid var(--amber); border-radius:var(--radius); padding:14px 16px; margin-bottom:18px; font-size:13px;}
 
-  .tutor-panel{margin-top:22px; border-top:1px solid var(--line); padding-top:16px;}
-  .tutor-header{font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--teal); margin-bottom:10px;}
-  .tutor-messages{max-height:340px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;}
-  .tutor-msg{padding:9px 12px; border-radius:8px; font-size:13.5px; line-height:1.45; max-width:88%;}
+  .tutor-panel{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    background:var(--paper); border-top:1px solid var(--line); border-radius:10px 10px 0 0;
+    max-height:48px; overflow:hidden; transition:max-height .22s ease;
+    box-shadow:0 -3px 14px rgba(0,0,0,.10);
+  }
+  .tutor-panel.open{max-height:78vh;}
+  .tutor-toggle-bar{
+    display:flex; justify-content:space-between; align-items:center; padding:13px 16px; cursor:pointer;
+    font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--teal);
+  }
+  .tutor-toggle-bar .chev{transition:transform .22s ease; color:var(--ink-soft);}
+  .tutor-panel.open .tutor-toggle-bar .chev{transform:rotate(180deg);}
+  .tutor-body{padding:0 16px 16px; overflow-y:auto; max-height:calc(78vh - 48px);}
+  .tutor-messages{max-height:none; flex:1; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;}
+  .tutor-msg{padding:9px 12px; border-radius:8px; font-size:13.5px; line-height:1.45; max-width:92%;}
   .tutor-msg.user{align-self:flex-end; background:var(--teal); color:#fff; border-bottom-right-radius:2px;}
   .tutor-msg.assistant{align-self:flex-start; background:var(--bg); border:1px solid var(--line); border-bottom-left-radius:2px; white-space:pre-wrap;}
   .tutor-msg.error{align-self:flex-start; background:var(--red-bg); border:1px solid var(--red); color:var(--red);}
@@ -166,6 +178,20 @@
   .typing-dots span{display:inline-block; width:5px; height:5px; background:var(--ink-soft); border-radius:50%; margin-right:3px; animation:blink 1.2s infinite;}
   .typing-dots span:nth-child(2){animation-delay:.2s;} .typing-dots span:nth-child(3){animation-delay:.4s;}
   @keyframes blink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
+
+  body.tutor-active main{padding-bottom:60px;}
+  @media (min-width:900px){
+    .tutor-panel{
+      top:132px; right:0; bottom:0; left:auto; width:20vw; min-width:280px; max-width:400px;
+      max-height:none; border-top:none; border-left:1px solid var(--line); border-radius:0; box-shadow:none;
+      display:flex; flex-direction:column;
+    }
+    .tutor-toggle-bar{cursor:default;}
+    .tutor-toggle-bar .chev{display:none;}
+    .tutor-body{max-height:none; flex:1; display:flex; flex-direction:column; padding:0 16px 16px;}
+    body.tutor-active main{padding-bottom:22px; margin-right:20vw;}
+    @media (max-width:1099px){ body.tutor-active main{margin-right:280px;} }
+  }
 
   input[type=date]{font-family:var(--mono); font-size:12px; border:1px solid var(--line); border-radius:2px; padding:5px 8px;}
 
@@ -449,17 +475,28 @@ try{
 function saveTutorChats(){
   try{ localStorage.setItem('usmleTutorChats', JSON.stringify(tutorChats)); }catch(e){}
 }
+let tutorOpen = false;
+function toggleTutor(){
+  tutorOpen = !tutorOpen;
+  const panel = document.getElementById('tutor-panel');
+  if(panel) panel.classList.toggle('open', tutorOpen);
+}
 function renderTutorPanel(mod){
   const msgs = tutorChats[mod.id] || [];
   const bubbles = msgs.map(m=>`<div class="tutor-msg ${m.role}">${escapeHtml(m.content)}</div>`).join('');
-  return `<div class="tutor-panel">
-    <div class="tutor-header">Тьютор — ${mod.name}</div>
-    <div class="tutor-messages" id="tutor-msgs-${mod.id}">${bubbles || '<div class="tutor-hint">Спроси про механизм, попроси разобрать кейс, или задай вопрос по теме — тьютор знает, какой блок ты сейчас проходишь.</div>'}</div>
-    <div class="tutor-input-row">
-      <textarea id="tutor-input-${mod.id}" placeholder="Например: объясни механизм систолического шума при MVP"></textarea>
-      <button class="btn" onclick="sendTutorMessage('${mod.id}')">→</button>
+  return `<div class="tutor-panel ${tutorOpen?'open':''}" id="tutor-panel">
+    <div class="tutor-toggle-bar" onclick="toggleTutor()">
+      <span>Тьютор — ${mod.name}</span>
+      <span class="chev">▲</span>
     </div>
-    <div class="tutor-hint">Нужен свой Claude API-ключ (введи вверху страницы). Ключ хранится только в этом браузере.</div>
+    <div class="tutor-body">
+      <div class="tutor-messages" id="tutor-msgs-${mod.id}">${bubbles || '<div class="tutor-hint">Спроси про механизм, попроси разобрать кейс, или задай вопрос по теме — тьютор знает, какой блок ты сейчас проходишь.</div>'}</div>
+      <div class="tutor-input-row">
+        <textarea id="tutor-input-${mod.id}" placeholder="Например: объясни механизм систолического шума при MVP"></textarea>
+        <button class="btn" onclick="sendTutorMessage('${mod.id}')">→</button>
+      </div>
+      <div class="tutor-hint">Нужен свой Claude API-ключ (введи вверху страницы). Ключ хранится только в этом браузере.</div>
+    </div>
   </div>`;
 }
 function escapeHtml(s){
@@ -599,12 +636,14 @@ function openModule(id){
   document.getElementById('modules-list').style.display = 'none';
   const wrap = document.getElementById('module-detail');
   wrap.style.display = 'block';
+  document.body.classList.add('tutor-active');
   renderModuleDetail();
 }
 function closeModule(){
   currentModuleId = null;
   document.getElementById('modules-list').style.display = 'block';
   document.getElementById('module-detail').style.display = 'none';
+  document.body.classList.remove('tutor-active');
 }
 function renderModuleDetail(){
   const mod = MODULES.find(m=>m.id===currentModuleId);
@@ -639,8 +678,8 @@ function renderModuleDetail(){
         <input id="custom-input-${mod.id}" placeholder="Добавить тему из UWorld/NBME (например: Long QT drugs)">
         <button class="btn" onclick="addCustom('${mod.id}')">Добавить</button>
       </div>
-      ${renderTutorPanel(mod)}
-    </div>`;
+    </div>
+    ${renderTutorPanel(mod)}`;
 }
 function addCustom(modId){
   const input = document.getElementById('custom-input-'+modId);
