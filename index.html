@@ -179,6 +179,13 @@
   .typing-dots span:nth-child(2){animation-delay:.2s;} .typing-dots span:nth-child(3){animation-delay:.4s;}
   @keyframes blink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
 
+  .tutor-tabs{display:flex; gap:0; border-bottom:1px solid var(--line); margin:-16px -16px 12px;}
+  .tutor-tab{flex:1; text-align:center; padding:11px 8px; font-family:var(--mono); font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft); cursor:pointer; border-bottom:2px solid transparent;}
+  .tutor-tab.active{color:var(--teal); border-bottom-color:var(--teal); font-weight:600;}
+  .quiz-controls{display:flex; gap:6px; margin-bottom:10px;}
+  .quiz-controls .btn{font-size:10.5px; padding:7px 10px; flex:1;}
+  .quiz-controls .btn.ghost{background:none; border:1px solid var(--teal); color:var(--teal);}
+
   body.tutor-active main{padding-bottom:60px;}
   @media (min-width:900px){
     .tutor-panel{
@@ -469,11 +476,23 @@ apiKeyInput.addEventListener('change', ()=>{
 
 /* ---------- TUTOR CHAT ---------- */
 let tutorChats = {}; // modId -> [{role, content}], local-only (not synced)
+let quizChats = {};  // modId -> [{role, content}], local-only, separate from free-form tutor chat
 try{
   tutorChats = JSON.parse(localStorage.getItem('usmleTutorChats') || '{}');
 }catch(e){ tutorChats = {}; }
+try{
+  quizChats = JSON.parse(localStorage.getItem('usmleTutorQuizChats') || '{}');
+}catch(e){ quizChats = {}; }
 function saveTutorChats(){
   try{ localStorage.setItem('usmleTutorChats', JSON.stringify(tutorChats)); }catch(e){}
+}
+function saveQuizChats(){
+  try{ localStorage.setItem('usmleTutorQuizChats', JSON.stringify(quizChats)); }catch(e){}
+}
+let panelTab = 'tutor'; // 'tutor' | 'quiz'
+function switchPanelTab(tab){
+  panelTab = tab;
+  renderModuleDetail();
 }
 let tutorOpen = false;
 function toggleTutor(){
@@ -482,18 +501,32 @@ function toggleTutor(){
   if(panel) panel.classList.toggle('open', tutorOpen);
 }
 function renderTutorPanel(mod){
-  const msgs = tutorChats[mod.id] || [];
+  const isQuiz = panelTab === 'quiz';
+  const chats = isQuiz ? quizChats : tutorChats;
+  const msgs = (chats[mod.id] || []).filter(m => m.role !== 'system-hidden');
   const bubbles = msgs.map(m=>`<div class="tutor-msg ${m.role}">${escapeHtml(m.content)}</div>`).join('');
+  const emptyHint = isQuiz
+    ? '<div class="tutor-hint">Нажми "Начать кейс" — тьютор даст вводные и будет поэтапно выдавать данные по запросу, как на реальном разборе.</div>'
+    : '<div class="tutor-hint">Спроси про механизм, попроси разобрать кейс, или задай вопрос по теме.</div>';
+  const quizControls = isQuiz ? `<div class="quiz-controls">
+      <button class="btn ghost" onclick="startQuizCase('${mod.id}')">${msgs.length ? 'Новый кейс' : 'Начать кейс'}</button>
+      ${msgs.length ? `<button class="btn ghost" onclick="finishQuizCase('${mod.id}')">Завершить и разобрать</button>` : ''}
+    </div>` : '';
   return `<div class="tutor-panel ${tutorOpen?'open':''}" id="tutor-panel">
     <div class="tutor-toggle-bar" onclick="toggleTutor()">
-      <span>Тьютор — ${mod.name}</span>
+      <span>${mod.name}</span>
       <span class="chev">▲</span>
     </div>
     <div class="tutor-body">
-      <div class="tutor-messages" id="tutor-msgs-${mod.id}">${bubbles || '<div class="tutor-hint">Спроси про механизм, попроси разобрать кейс, или задай вопрос по теме — тьютор знает, какой блок ты сейчас проходишь.</div>'}</div>
+      <div class="tutor-tabs">
+        <div class="tutor-tab ${!isQuiz?'active':''}" onclick="event.stopPropagation(); switchPanelTab('tutor')">Тьютор</div>
+        <div class="tutor-tab ${isQuiz?'active':''}" onclick="event.stopPropagation(); switchPanelTab('quiz')">Квиз</div>
+      </div>
+      ${quizControls}
+      <div class="tutor-messages" id="tutor-msgs-${mod.id}">${bubbles || emptyHint}</div>
       <div class="tutor-input-row">
-        <textarea id="tutor-input-${mod.id}" placeholder="Например: объясни механизм систолического шума при MVP"></textarea>
-        <button class="btn" onclick="sendTutorMessage('${mod.id}')">→</button>
+        <textarea id="tutor-input-${mod.id}" placeholder="${isQuiz ? 'Например: какие лабораторные показатели? / какой план?' : 'Например: объясни механизм систолического шума при MVP'}"></textarea>
+        <button class="btn" onclick="${isQuiz ? `sendQuizMessage('${mod.id}')` : `sendTutorMessage('${mod.id}')`}">→</button>
       </div>
       <div class="tutor-hint">Нужен свой Claude API-ключ (введи вверху страницы). Ключ хранится только в этом браузере.</div>
     </div>
@@ -502,29 +535,18 @@ function renderTutorPanel(mod){
 function escapeHtml(s){
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-async function sendTutorMessage(modId){
-  const mod = MODULES.find(m=>m.id===modId);
-  const input = document.getElementById('tutor-input-'+modId);
-  const text = input.value.trim();
-  if(!text) return;
+async function callClaude(modId, chatStore, saveFn, systemPrompt){
   const apiKey = localStorage.getItem('usmleTutorApiKey');
   if(!apiKey){
     alert('Введи Claude API-ключ вверху страницы, чтобы пользоваться тьютором.');
     return;
   }
-  if(!tutorChats[modId]) tutorChats[modId] = [];
-  tutorChats[modId].push({role:'user', content:text});
-  input.value = '';
-  saveTutorChats();
   renderModuleDetail();
-
   const msgsEl = document.getElementById('tutor-msgs-'+modId);
-  if(msgsEl) msgsEl.innerHTML += `<div class="tutor-msg assistant typing-dots"><span></span><span></span><span></span></div>`;
-  if(msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
-
-  const subjectList = mod.subs.join(', ');
-  const systemPrompt = `Ты — тьютор для подготовки к USMLE Step 1, помогаешь ординатору общей хирургии (PGY-2). Сейчас он проходит блок "${mod.name}" (подтемы: ${subjectList}). Объясняй механизмы своими словами, на уровне First Aid, но НИКОГДА не копируй текст учебников дословно. Поощряй активное вспоминание: если уместно, спроси его встречный вопрос вместо готового ответа. Отвечай кратко и по делу, форматируй для мобильного экрана. Отвечай на языке вопроса (обычно русский с медицинскими терминами на английском).`;
-
+  if(msgsEl){
+    msgsEl.innerHTML += `<div class="tutor-msg assistant typing-dots"><span></span><span></span><span></span></div>`;
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
   try{
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST',
@@ -536,23 +558,74 @@ async function sendTutorMessage(modId){
       },
       body: JSON.stringify({
         model:'claude-sonnet-4-6',
-        max_tokens:800,
+        max_tokens:900,
         system: systemPrompt,
-        messages: tutorChats[modId].map(m=>({role:m.role, content:m.content}))
+        messages: chatStore[modId].map(m=>({role: m.role==='system-hidden' ? 'user' : m.role, content:m.content}))
       })
     });
     const data = await resp.json();
     if(data.error){
-      tutorChats[modId].push({role:'error', content:'Ошибка API: '+(data.error.message||'неизвестная ошибка')});
+      chatStore[modId].push({role:'error', content:'Ошибка API: '+(data.error.message||'неизвестная ошибка')});
     } else {
       const textOut = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-      tutorChats[modId].push({role:'assistant', content: textOut || '(пустой ответ)'});
+      chatStore[modId].push({role:'assistant', content: textOut || '(пустой ответ)'});
     }
   } catch(e){
-    tutorChats[modId].push({role:'error', content:'Сеть/запрос не прошёл: '+e.message});
+    chatStore[modId].push({role:'error', content:'Сеть/запрос не прошёл: '+e.message});
   }
-  saveTutorChats();
+  saveFn();
   renderModuleDetail();
+}
+
+async function sendTutorMessage(modId){
+  const mod = MODULES.find(m=>m.id===modId);
+  const input = document.getElementById('tutor-input-'+modId);
+  const text = input.value.trim();
+  if(!text) return;
+  if(!tutorChats[modId]) tutorChats[modId] = [];
+  tutorChats[modId].push({role:'user', content:text});
+  input.value = '';
+  saveTutorChats();
+
+  const subjectList = mod.subs.join(', ');
+  const systemPrompt = `Ты — тьютор для подготовки к USMLE Step 1, помогаешь ординатору общей хирургии (PGY-2). Сейчас он проходит блок "${mod.name}" (подтемы: ${subjectList}). Объясняй механизмы своими словами, на уровне First Aid, но НИКОГДА не копируй текст учебников дословно. Поощряй активное вспоминание: если уместно, спроси его встречный вопрос вместо готового ответа. Отвечай кратко и по делу, форматируй для мобильного экрана. Отвечай на языке вопроса (обычно русский с медицинскими терминами на английском).`;
+  await callClaude(modId, tutorChats, saveTutorChats, systemPrompt);
+}
+
+function quizSystemPrompt(mod){
+  const subjectList = mod.subs.join(', ');
+  return `Ты ведёшь пошаговый интерактивный клинический кейс для подготовки ординатора (PGY-2, общая хирургия) к USMLE Step 1. Тема блока: "${mod.name}" (подтемы: ${subjectList}).
+
+ПРАВИЛА:
+1. Придумай правдоподобный кейс уровня USMLE Step 1 по этой теме. НЕ раскрывай диагноз сразу. Сначала дай только: возраст/пол пациента, жалобы, краткий анамнез (HPI), витальные показатели — и спроси, что он хочет сделать дальше (осмотр, анамнез подробнее, лабораторные, инструментальные).
+2. Дальше пользователь будет запрашивать конкретные данные. Выдавай СТРОГО то, что запрошено, не больше. Если какие-то данные заранее не были определены в твоём внутреннем плане кейса — придумай их правдоподобно на лету, оставаясь строго согласованным с уже выданной информацией и вероятным диагнозом; никогда не противоречь тому, что уже сообщил ранее в этом же диалоге.
+3. Если пользователь предлагает диагноз, механизм или план лечения — не подтверждай сразу. Спроси "почему ты так думаешь" или на основании чего, затем дай честную обратную связь.
+4. Когда пользователь просит завершить кейс — дай финальный структурированный разбор: 1) какой был реальный диагноз и патогенез (своими словами, НИКОГДА дословно из учебников), 2) какие из запрошенных им исследований были реально необходимы, какие избыточны, 3) сошлись на конкретные официальные гайдлайны/протоколы там, где уместно (например ACC/AHA, IDSA, ATLS, Surviving Sepsis Campaign, USPSTF, NCCN) и коротко объясни их логику — без дословного цитирования текста гайдлайнов.
+5. Отвечай кратко и структурированно, форматируй под мобильный экран. Язык — русский, медицинские термины можно на английском как принято.`;
+}
+async function startQuizCase(modId){
+  const mod = MODULES.find(m=>m.id===modId);
+  quizChats[modId] = [{role:'system-hidden', content:'Начни новый кейс по этой теме.'}];
+  saveQuizChats();
+  await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
+}
+async function sendQuizMessage(modId){
+  const mod = MODULES.find(m=>m.id===modId);
+  const input = document.getElementById('tutor-input-'+modId);
+  const text = input.value.trim();
+  if(!text) return;
+  if(!quizChats[modId] || !quizChats[modId].length){ alert('Сначала нажми "Начать кейс".'); return; }
+  quizChats[modId].push({role:'user', content:text});
+  input.value = '';
+  saveQuizChats();
+  await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
+}
+async function finishQuizCase(modId){
+  const mod = MODULES.find(m=>m.id===modId);
+  if(!quizChats[modId] || !quizChats[modId].length) return;
+  quizChats[modId].push({role:'system-hidden', content:'Заверши кейс и дай финальный разбор по правилу 4.'});
+  saveQuizChats();
+  await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
 }
 function getItemState(modId, subId){
   return (state.progress[modId] && state.progress[modId][subId]) || {checked:false, confidence:0, note:''};
