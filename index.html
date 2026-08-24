@@ -573,10 +573,10 @@
         <div class="block-selector-panel" id="source-panel">
           <div id="source-list"></div>
           <div class="source-add-block">
-            <input id="source-name-input" class="source-name-input" placeholder="Название источника (например: Anatomy Netter's)">
-            <textarea id="source-paste" class="source-paste" placeholder="Вставь текст сюда (оглавление / главы) или загрузи файл ниже"></textarea>
+            <input id="source-name-input" class="source-name-input" data-i18n-placeholder="source_name_placeholder" placeholder="Название источника (например: Anatomy Netter's)">
+            <textarea id="source-paste" class="source-paste" data-i18n-placeholder="source_paste_placeholder" placeholder="Вставь текст сюда (оглавление / главы) или загрузи файл ниже"></textarea>
             <input type="file" id="source-file-input" accept=".txt,.pdf" class="source-file-input">
-            <button class="btn" id="source-generate-btn" onclick="generateSource()">Сгенерировать блоки</button>
+            <button class="btn" id="source-generate-btn" onclick="generateSource()" data-i18n="source_generate_btn">Сгенерировать блоки</button>
             <div id="source-status" class="source-status"></div>
           </div>
         </div>
@@ -685,6 +685,9 @@ const LANG = {
     log_submit:'Записать', cal_label:'Календарь', notes_label:'Все записи',
     login_sub:'Вход только для тебя', login_email:'email', login_password:'пароль', login_btn:'Войти',
     pomo_continue:'Продолжить', note_close:'Закрыть', pomo_msg_sub:'Сессия завершена — самое время отметить, что прошёл.',
+    source_name_placeholder:"Название источника (например: Anatomy Netter's)",
+    source_paste_placeholder:'Вставь текст сюда (оглавление / главы) или загрузи файл ниже',
+    source_generate_btn:'Сгенерировать блоки',
     target_label:'Target:', days_left_label:'Days left:',
     done_word:'готово', back_link:'← ко всем темам', add_placeholder:'Добавить тему из UWorld/NBME (например: Long QT drugs)',
     add_btn:'Добавить', confidence_label:'уверенность:', note_input_placeholder:'заметка / из какого UWorld блока',
@@ -714,6 +717,9 @@ const LANG = {
     log_submit:'Save', cal_label:'Calendar', notes_label:'All Notes',
     login_sub:'Sign-in for you only', login_email:'email', login_password:'password', login_btn:'Sign in',
     pomo_continue:'Continue', note_close:'Close', pomo_msg_sub:'Session complete — good time to log what you covered.',
+    source_name_placeholder:"Source name (e.g. Anatomy Netter's)",
+    source_paste_placeholder:'Paste text here (table of contents / chapters) or upload a file below',
+    source_generate_btn:'Generate Blocks',
     target_label:'Target:', days_left_label:'Days left:',
     done_word:'done', back_link:'← back to all topics', add_placeholder:'Add a topic from UWorld/NBME (e.g. Long QT drugs)',
     add_btn:'Add', confidence_label:'confidence:', note_input_placeholder:'note / which UWorld block',
@@ -1028,7 +1034,10 @@ function switchSource(id){
 }
 function deleteSource(id){
   if(sources[id] && sources[id].builtin) return;
-  if(!confirm('Удалить источник "'+sources[id].name+'"? Прогресс по нему сохранится в базе, но пропадёт из списка.')) return;
+  const confirmMsg = uiLang==='ru'
+    ? 'Удалить источник "'+sources[id].name+'"? Прогресс по нему сохранится в базе, но пропадёт из списка.'
+    : 'Delete source "'+sources[id].name+'"? Its progress stays in the database but disappears from the list.';
+  if(!confirm(confirmMsg)) return;
   const hadPdf = sources[id] && sources[id].hasPdf;
   delete state.customSources[id];
   writeKey('customSources/'+id, null);
@@ -1088,7 +1097,7 @@ async function generateSource(){
     statusEl.textContent = uiLang==='ru' ? 'Текста нет — строю по общим знаниям об этом источнике…' : 'No text provided — building from general knowledge of this source…';
     statusEl.className = 'source-status';
   } else {
-    text = text.slice(0, 90000);
+    text = text.slice(0, 55000);
     statusEl.textContent = uiLang==='ru' ? 'Генерирую структуру блоков…' : 'Generating block structure…';
     statusEl.className = 'source-status';
   }
@@ -1163,7 +1172,13 @@ async function generateSource(){
     statusEl.textContent = uiLang==='ru' ? `Готово — ${modules.length} блоков создано.` : `Done — ${modules.length} blocks created.`;
     statusEl.className = 'source-status';
   }catch(e){
-    statusEl.textContent = (uiLang==='ru'?'Ошибка: ':'Error: ')+e.message;
+    const isNetworkError = /load failed|network|fetch/i.test(e.message||'');
+    const hint = isNetworkError
+      ? (uiLang==='ru'
+        ? ' Похоже на сетевой сбой — проверь соединение и попробуй ещё раз; если повторяется, попробуй вставить более короткий фрагмент текста (например, только оглавление) вместо всего файла.'
+        : ' This looks like a network hiccup — check your connection and try again; if it keeps happening, try pasting a shorter excerpt (e.g. just the table of contents) instead of the whole file.')
+      : '';
+    statusEl.textContent = (uiLang==='ru'?'Ошибка: ':'Error: ')+e.message+hint;
     statusEl.className = 'source-status error';
   }
 }
