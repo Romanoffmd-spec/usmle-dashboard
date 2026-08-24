@@ -967,16 +967,24 @@ async function generateSource(){
     statusEl.className='source-status error';
     return;
   }
-  if(!text){ statusEl.textContent = uiLang==='ru' ? 'Вставь текст или загрузи файл' : 'Paste text or upload a file'; statusEl.className='source-status error'; return; }
-  text = text.slice(0, 90000);
+  if(!text){
+    statusEl.textContent = uiLang==='ru' ? 'Текста нет — строю по общим знаниям об этом источнике…' : 'No text provided — building from general knowledge of this source…';
+    statusEl.className = 'source-status';
+  } else {
+    text = text.slice(0, 90000);
+    statusEl.textContent = uiLang==='ru' ? 'Генерирую структуру блоков…' : 'Generating block structure…';
+    statusEl.className = 'source-status';
+  }
 
-  statusEl.textContent = uiLang==='ru' ? 'Генерирую структуру блоков…' : 'Generating block structure…';
-  statusEl.className = 'source-status';
+  const sysPrompt = text
+    ? (uiLang==='ru'
+      ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения, в том же формате, что и First Aid USMLE (модуль -> список конкретных подтем). Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","subs":["Подтема 1","Подтема 2", ...]}]. Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.`
+      : `Help break a study source into modules and subtopics for a study tracker, in the same format as the First Aid USMLE structure (module -> list of specific subtopics). Analyze the provided text (an excerpt/table of contents from the source "${name}") and output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","subs":["Subtopic 1","Subtopic 2", ...]}]. Split the material into 8-20 logical modules (chapters/sections), each with 5-15 specific high-yield subtopics. If the text is short or incomplete (e.g. only part of a textbook), use general knowledge of the subject to reasonably extend the structure, matching the level of detail found in the excerpt.`)
+    : (uiLang==='ru'
+      ? `Пользователь не прислал текст источника — только название: "${name}". По своим общим знаниям об этой книге/курсе/предмете построй типичную структуру глав и тем, в формате трекера обучения (модуль -> список конкретных подтем). Если это известный учебник (например, Netter's Anatomy, Kaplan Physiology, Robbins Pathology и т.п.) — используй его реальное известное оглавление по памяти, максимально точно. Если название малоизвестно или неоднозначно — построй разумную типовую структуру для предмета с таким названием. Выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","subs":["Подтема 1","Подтема 2", ...]}]. 8-20 модулей, в каждом 5-15 конкретных подтем.`
+      : `The user provided no source text — only a name: "${name}". Using your general knowledge of this book/course/subject, build a typical chapter/topic structure in the study-tracker format (module -> list of specific subtopics). If this is a known textbook (e.g. Netter's Anatomy, Kaplan Physiology, Robbins Pathology, etc.) — recall its real table of contents as accurately as you can from memory. If the name is obscure or ambiguous, build a reasonable generic structure for a subject with that name. Output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","subs":["Subtopic 1","Subtopic 2", ...]}]. 8-20 modules, each with 5-15 specific subtopics.`);
 
-  const sysPrompt = uiLang==='ru'
-    ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения, в том же формате, что и First Aid USMLE (модуль -> список конкретных подтем). Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","subs":["Подтема 1","Подтема 2", ...]}]. Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.`
-    : `Help break a study source into modules and subtopics for a study tracker, in the same format as the First Aid USMLE structure (module -> list of specific subtopics). Analyze the provided text (an excerpt/table of contents from the source "${name}") and output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","subs":["Subtopic 1","Subtopic 2", ...]}]. Split the material into 8-20 logical modules (chapters/sections), each with 5-15 specific high-yield subtopics. If the text is short or incomplete (e.g. only part of a textbook), use general knowledge of the subject to reasonably extend the structure, matching the level of detail found in the excerpt.`;
-
+  const userContent = text || `Source name: ${name}`;
   try{
     let raw;
     if(currentProvider() === 'gemini'){
@@ -984,7 +992,7 @@ async function generateSource(){
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           system_instruction:{parts:[{text:sysPrompt}]},
-          contents:[{role:'user', parts:[{text: text}]}]
+          contents:[{role:'user', parts:[{text: userContent}]}]
         })
       });
       const data = await resp.json();
@@ -994,7 +1002,7 @@ async function generateSource(){
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body: JSON.stringify({model:'claude-sonnet-4-6', max_tokens:4000, system:sysPrompt, messages:[{role:'user', content:text}]})
+        body: JSON.stringify({model:'claude-sonnet-4-6', max_tokens:4000, system:sysPrompt, messages:[{role:'user', content:userContent}]})
       });
       const data = await resp.json();
       if(data.error) throw new Error(data.error.message||'Claude error');
