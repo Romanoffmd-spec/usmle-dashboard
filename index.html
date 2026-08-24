@@ -481,6 +481,8 @@
 </button>
 <div id="pomo-time"></div>
 
+<div id="global-tutor-slot"></div>
+
 <div id="pomo-big">
   <div class="pomo-stem">🌿</div>
   <div class="pomo-big-inner">
@@ -1579,9 +1581,28 @@ function saveQuizChats(){
 let panelTab = 'tutor'; // 'tutor' | 'quiz'
 function switchPanelTab(tab){
   panelTab = tab;
-  renderModuleDetail();
+  renderGlobalTutor();
 }
 let tutorOpen = false;
+function generalTutorModule(){
+  return {id:'__general__', name: uiLang==='ru'?'Общий тьютор (тема не выбрана)':'General Tutor (no topic selected)', subs:[]};
+}
+function resolveModule(modId){
+  if(modId === '__general__') return generalTutorModule();
+  return MODULES.find(m=>m.id===modId) || generalTutorModule();
+}
+let currentTutorModuleId = null;
+function getTutorModule(){
+  return currentTutorModuleId ? resolveModule(currentTutorModuleId) : generalTutorModule();
+}
+function renderGlobalTutor(){
+  const slot = document.getElementById('global-tutor-slot');
+  if(!slot) return;
+  const mod = getTutorModule();
+  slot.innerHTML = renderTutorPanel(mod);
+  const msgsEl = document.getElementById('tutor-msgs-'+mod.id);
+  if(msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+}
 function toggleTutor(){
   tutorOpen = !tutorOpen;
   const panel = document.getElementById('tutor-panel');
@@ -1633,7 +1654,7 @@ async function callClaude(modId, chatStore, saveFn, systemPrompt){
     alert('Введи API-ключ ('+(provider==='gemini'?'Gemini':'Claude')+') вверху страницы, чтобы пользоваться тьютором.');
     return;
   }
-  renderModuleDetail();
+  renderGlobalTutor();
   const msgsEl = document.getElementById('tutor-msgs-'+modId);
   if(msgsEl){
     msgsEl.innerHTML += `<div class="tutor-msg assistant typing-dots"><span></span><span></span><span></span></div>`;
@@ -1689,17 +1710,20 @@ async function callClaude(modId, chatStore, saveFn, systemPrompt){
     chatStore[modId].push({role:'error', content:'Сеть/запрос не прошёл: '+e.message});
   }
   saveFn();
-  renderModuleDetail();
+  renderGlobalTutor();
 }
 
 async function sendTutorText(modId, text){
-  const mod = MODULES.find(m=>m.id===modId);
+  const mod = resolveModule(modId);
   if(!tutorChats[modId]) tutorChats[modId] = [];
   tutorChats[modId].push({role:'user', content:text});
   saveTutorChats();
 
-  const subjectList = mod.subs.join(', ');
-  const systemPrompt = `Ты — тьютор для подготовки к USMLE Step 1, помогаешь ординатору общей хирургии (PGY-2). Сейчас он проходит блок "${mod.name}" (подтемы: ${subjectList}). Объясняй механизмы своими словами, на уровне First Aid, но НИКОГДА не копируй текст учебников дословно. Поощряй активное вспоминание: если уместно, спроси его встречный вопрос вместо готового ответа. Отвечай кратко и по делу, форматируй для мобильного экрана. ${t('ai_instruction')}
+  const isGeneral = mod.id === '__general__';
+  const contextLine = isGeneral
+    ? 'Конкретная тема пока не выбрана — если вопрос предполагает контекст темы, можешь уточнить или ответить в общем виде по USMLE Step 1.'
+    : `Сейчас он проходит блок "${mod.name}" (подтемы: ${mod.subs.join(', ')}).`;
+  const systemPrompt = `Ты — тьютор для подготовки к USMLE Step 1, помогаешь ординатору общей хирургии (PGY-2). ${contextLine} Объясняй механизмы своими словами, на уровне First Aid, но НИКОГДА не копируй текст учебников дословно. Поощряй активное вспоминание: если уместно, спроси его встречный вопрос вместо готового ответа. Отвечай кратко и по делу, форматируй для мобильного экрана. ${t('ai_instruction')}
 
 ФОРМАТИРОВАНИЕ (строго): пиши обычным разговорным текстом, как будто объясняешь вслух коллеге. НЕ используй markdown-разметку — никаких ### заголовков, **жирного текста** со звёздочками, LaTeX-формул ($$...$$), горизонтальных линий (---), нумерованных списков с точками через звёздочку. Если нужно перечислить несколько пунктов — пиши их как обычные предложения через тире или просто абзацами. Формулы записывай словами или простыми обозначениями (например "SV / compliance", а не LaTeX-дробь).`;
   await callClaude(modId, tutorChats, saveTutorChats, systemPrompt);
@@ -1714,7 +1738,8 @@ async function sendTutorMessage(modId){
 async function requestLecture(modId, label){
   panelTab = 'tutor';
   tutorOpen = true;
-  renderModuleDetail();
+  currentTutorModuleId = modId;
+  renderGlobalTutor();
   const panel = document.getElementById('tutor-panel');
   if(panel) panel.classList.add('open');
   document.body.classList.add('tutor-sheet-open');
@@ -1738,13 +1763,14 @@ function quizSystemPrompt(mod){
 ФОРМАТИРОВАНИЕ (строго): пиши обычным разговорным текстом, как живой диалог, а не документ. НЕ используй markdown — никаких ### заголовков, **звёздочек** для жирного, LaTeX-формул ($$...$$), горизонтальных линий (---). Списки — обычными предложениями через тире или абзацами, без нумерации точками-звёздочками.`;
 }
 async function startQuizCase(modId){
-  const mod = MODULES.find(m=>m.id===modId);
+  if(modId === '__general__'){ alert(uiLang==='ru' ? 'Сначала выбери конкретную тему в разделе Темы.' : 'Pick a specific topic in Topics first.'); return; }
+  const mod = resolveModule(modId);
   quizChats[modId] = [{role:'system-hidden', content: uiLang === 'ru' ? 'Начни новый кейс по этой теме.' : 'Start a new case on this topic.'}];
   saveQuizChats();
   await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
 }
 async function sendQuizMessage(modId){
-  const mod = MODULES.find(m=>m.id===modId);
+  const mod = resolveModule(modId);
   const input = document.getElementById('tutor-input-'+modId);
   const text = input.value.trim();
   if(!text) return;
@@ -1755,7 +1781,7 @@ async function sendQuizMessage(modId){
   await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
 }
 async function finishQuizCase(modId){
-  const mod = MODULES.find(m=>m.id===modId);
+  const mod = resolveModule(modId);
   if(!quizChats[modId] || !quizChats[modId].length) return;
   quizChats[modId].push({role:'system-hidden', content:'Заверши кейс и дай финальный разбор по правилу 4.'});
   saveQuizChats();
@@ -1903,18 +1929,18 @@ function renderOverviewStats(){
 let currentModuleId = null;
 function openModule(id){
   currentModuleId = id;
+  currentTutorModuleId = id;
   document.querySelector('[data-view="modules"]').click();
   document.getElementById('modules-list').style.display = 'none';
   const wrap = document.getElementById('module-detail');
   wrap.style.display = 'block';
-  document.body.classList.add('tutor-active');
   renderModuleDetail();
+  renderGlobalTutor();
 }
 function closeModule(){
   currentModuleId = null;
   document.getElementById('modules-list').style.display = 'block';
   document.getElementById('module-detail').style.display = 'none';
-  document.body.classList.remove('tutor-active');
 }
 function renderModuleDetail(){
   const mod = MODULES.find(m=>m.id===currentModuleId);
@@ -1955,10 +1981,7 @@ function renderModuleDetail(){
         <input id="custom-input-${mod.id}" placeholder="${t('add_placeholder')}">
         <button class="btn" onclick="addCustom('${mod.id}')">${t('add_btn')}</button>
       </div>
-    </div>
-    ${renderTutorPanel(mod)}`;
-  const msgsElAfter = document.getElementById('tutor-msgs-'+mod.id);
-  if(msgsElAfter) msgsElAfter.scrollTop = msgsElAfter.scrollHeight;
+    </div>`;
 }
 function addCustom(modId){
   const input = document.getElementById('custom-input-'+modId);
@@ -2222,7 +2245,9 @@ function renderAll(){
   renderCalendar();
   renderLog();
   if(currentModuleId) renderModuleDetail();
+  renderGlobalTutor();
 }
+document.body.classList.add('tutor-active'); // sidebar/bottom-bar tutor is always available, on every page
 applyStaticLanguage();
 renderAll();
 </script>
