@@ -153,6 +153,20 @@
 
   .setup-box{background:var(--amber-bg); border:1px solid var(--amber); border-radius:var(--radius); padding:14px 16px; margin-bottom:18px; font-size:13px;}
 
+  .tutor-panel{margin-top:22px; border-top:1px solid var(--line); padding-top:16px;}
+  .tutor-header{font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--teal); margin-bottom:10px;}
+  .tutor-messages{max-height:340px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;}
+  .tutor-msg{padding:9px 12px; border-radius:8px; font-size:13.5px; line-height:1.45; max-width:88%;}
+  .tutor-msg.user{align-self:flex-end; background:var(--teal); color:#fff; border-bottom-right-radius:2px;}
+  .tutor-msg.assistant{align-self:flex-start; background:var(--bg); border:1px solid var(--line); border-bottom-left-radius:2px; white-space:pre-wrap;}
+  .tutor-msg.error{align-self:flex-start; background:var(--red-bg); border:1px solid var(--red); color:var(--red);}
+  .tutor-input-row{display:flex; gap:8px;}
+  .tutor-input-row textarea{flex:1; font-family:var(--sans); font-size:13.5px; padding:9px 10px; border:1px solid var(--line); border-radius:2px; resize:none; min-height:40px;}
+  .tutor-hint{font-size:11.5px; color:var(--ink-soft); margin-top:6px;}
+  .typing-dots span{display:inline-block; width:5px; height:5px; background:var(--ink-soft); border-radius:50%; margin-right:3px; animation:blink 1.2s infinite;}
+  .typing-dots span:nth-child(2){animation-delay:.2s;} .typing-dots span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
+
   input[type=date]{font-family:var(--mono); font-size:12px; border:1px solid var(--line); border-radius:2px; padding:5px 8px;}
 
   #login-screen{
@@ -199,6 +213,7 @@
     <div class="brand-sub">USMLE Step 1 — First Aid 2025</div>
   </div>
   <div class="countdown">
+    <input type="password" id="api-key-input" placeholder="Claude API ключ" style="font-family:var(--mono);font-size:11px;padding:5px 8px;border:1px solid var(--line);border-radius:2px;width:150px;">
     <span><span id="sync-dot"></span><span id="sync-label">connecting…</span></span>
     <span>Target: <input type="date" id="target-date"></span>
     <span>Days left: <b id="days-left">—</b></span>
@@ -419,7 +434,89 @@ function writeKey(path, value){
   }
 }
 
-/* ---------- HELPERS ---------- */
+/* ---------- API KEY (local only, never synced to Firebase) ---------- */
+const apiKeyInput = document.getElementById('api-key-input');
+apiKeyInput.value = localStorage.getItem('usmleTutorApiKey') || '';
+apiKeyInput.addEventListener('change', ()=>{
+  localStorage.setItem('usmleTutorApiKey', apiKeyInput.value.trim());
+});
+
+/* ---------- TUTOR CHAT ---------- */
+let tutorChats = {}; // modId -> [{role, content}], local-only (not synced)
+try{
+  tutorChats = JSON.parse(localStorage.getItem('usmleTutorChats') || '{}');
+}catch(e){ tutorChats = {}; }
+function saveTutorChats(){
+  try{ localStorage.setItem('usmleTutorChats', JSON.stringify(tutorChats)); }catch(e){}
+}
+function renderTutorPanel(mod){
+  const msgs = tutorChats[mod.id] || [];
+  const bubbles = msgs.map(m=>`<div class="tutor-msg ${m.role}">${escapeHtml(m.content)}</div>`).join('');
+  return `<div class="tutor-panel">
+    <div class="tutor-header">Тьютор — ${mod.name}</div>
+    <div class="tutor-messages" id="tutor-msgs-${mod.id}">${bubbles || '<div class="tutor-hint">Спроси про механизм, попроси разобрать кейс, или задай вопрос по теме — тьютор знает, какой блок ты сейчас проходишь.</div>'}</div>
+    <div class="tutor-input-row">
+      <textarea id="tutor-input-${mod.id}" placeholder="Например: объясни механизм систолического шума при MVP"></textarea>
+      <button class="btn" onclick="sendTutorMessage('${mod.id}')">→</button>
+    </div>
+    <div class="tutor-hint">Нужен свой Claude API-ключ (введи вверху страницы). Ключ хранится только в этом браузере.</div>
+  </div>`;
+}
+function escapeHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+async function sendTutorMessage(modId){
+  const mod = MODULES.find(m=>m.id===modId);
+  const input = document.getElementById('tutor-input-'+modId);
+  const text = input.value.trim();
+  if(!text) return;
+  const apiKey = localStorage.getItem('usmleTutorApiKey');
+  if(!apiKey){
+    alert('Введи Claude API-ключ вверху страницы, чтобы пользоваться тьютором.');
+    return;
+  }
+  if(!tutorChats[modId]) tutorChats[modId] = [];
+  tutorChats[modId].push({role:'user', content:text});
+  input.value = '';
+  saveTutorChats();
+  renderModuleDetail();
+
+  const msgsEl = document.getElementById('tutor-msgs-'+modId);
+  if(msgsEl) msgsEl.innerHTML += `<div class="tutor-msg assistant typing-dots"><span></span><span></span><span></span></div>`;
+  if(msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+
+  const subjectList = mod.subs.join(', ');
+  const systemPrompt = `Ты — тьютор для подготовки к USMLE Step 1, помогаешь ординатору общей хирургии (PGY-2). Сейчас он проходит блок "${mod.name}" (подтемы: ${subjectList}). Объясняй механизмы своими словами, на уровне First Aid, но НИКОГДА не копируй текст учебников дословно. Поощряй активное вспоминание: если уместно, спроси его встречный вопрос вместо готового ответа. Отвечай кратко и по делу, форматируй для мобильного экрана. Отвечай на языке вопроса (обычно русский с медицинскими терминами на английском).`;
+
+  try{
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:800,
+        system: systemPrompt,
+        messages: tutorChats[modId].map(m=>({role:m.role, content:m.content}))
+      })
+    });
+    const data = await resp.json();
+    if(data.error){
+      tutorChats[modId].push({role:'error', content:'Ошибка API: '+(data.error.message||'неизвестная ошибка')});
+    } else {
+      const textOut = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+      tutorChats[modId].push({role:'assistant', content: textOut || '(пустой ответ)'});
+    }
+  } catch(e){
+    tutorChats[modId].push({role:'error', content:'Сеть/запрос не прошёл: '+e.message});
+  }
+  saveTutorChats();
+  renderModuleDetail();
+}
 function getItemState(modId, subId){
   return (state.progress[modId] && state.progress[modId][subId]) || {checked:false, confidence:0, note:''};
 }
@@ -542,6 +639,7 @@ function renderModuleDetail(){
         <input id="custom-input-${mod.id}" placeholder="Добавить тему из UWorld/NBME (например: Long QT drugs)">
         <button class="btn" onclick="addCustom('${mod.id}')">Добавить</button>
       </div>
+      ${renderTutorPanel(mod)}
     </div>`;
 }
 function addCustom(modId){
