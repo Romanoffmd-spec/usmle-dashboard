@@ -1293,9 +1293,19 @@ async function generateSource(){
       return result;
     }
     const STOPWORDS = new Set(['and','the','for','with','from','into','their','which','these','those','about','after','before','during','through','without','within','between','other','general','basic','principles','overview','introduction','common','various','different','specific']);
-    function inferPagesFromText(moduleName, subs){
+    const lowerFullText = text.toLowerCase();
+    function findWordPage(word, excludePage){
+      let searchFrom = 0;
+      while(true){
+        const idx = lowerFullText.indexOf(word, searchFrom);
+        if(idx === -1) return null;
+        const pg = pageAtIndex(idx);
+        if(excludePage == null || pg !== excludePage) return pg;
+        searchFrom = idx + word.length;
+      }
+    }
+    function inferPagesFromText(moduleName, subs, excludePage){
       if(!pageMarkers.length) return null;
-      const lowerText = text.toLowerCase();
       const phrases = [moduleName, ...(subs||[])].filter(Boolean);
       const words = new Set();
       phrases.forEach(p=>{
@@ -1305,11 +1315,28 @@ async function generateSource(){
       });
       const found = [];
       words.forEach(w=>{
-        const idx = lowerText.indexOf(w);
-        if(idx !== -1) found.push(pageAtIndex(idx));
+        const pg = findWordPage(w, excludePage);
+        if(pg != null) found.push(pg);
       });
       if(found.length < 2) return null; // require at least 2 distinct term matches to be confident
       return {from: Math.min(...found), to: Math.max(...found)};
+    }
+
+    // pass 1 (no exclusion): detect a table-of-contents/index page — such a page
+    // literally lists every chapter title, so it wins nearly every module's word
+    // search and would otherwise make every "Read" button point at the same page.
+    let tocPage = null;
+    if(pdfFile){
+      const provisional = parsed.map(m=>{
+        const mn = (m.name||'').toString();
+        const ms = Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : [];
+        return inferPagesFromText(mn, ms, null);
+      });
+      const freq = {};
+      provisional.forEach(p=>{ if(p) freq[p.from] = (freq[p.from]||0)+1; });
+      let bestPage=null, bestCount=0;
+      Object.entries(freq).forEach(([pg,cnt])=>{ if(cnt>bestCount){ bestCount=cnt; bestPage=parseInt(pg,10); } });
+      if(bestCount >= Math.max(3, Math.ceil(parsed.length*0.3))) tocPage = bestPage;
     }
 
     const sourceId = slugify(name);
@@ -1317,7 +1344,7 @@ async function generateSource(){
       const moduleName = (m.name||'Module '+(i+1)).toString();
       const catRaw = (m.cat||'').toString().trim();
       const subs = Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : [];
-      const pages = parseAiPages(m.pages) || inferPagesFromText(moduleName, subs);
+      const pages = parseAiPages(m.pages) || inferPagesFromText(moduleName, subs, tocPage);
       return {
         id: sourceId+'_m'+i,
         cat: catRaw || (uiLang==='ru' ? 'Темы' : 'Topics'),
@@ -2443,6 +2470,8 @@ async function renderReaderPage(num){
   textLayer.innerHTML = '';
   textLayer.style.width = cssW + 'px';
   textLayer.style.height = cssH + 'px';
+  textLayer.style.setProperty('--scale-factor', cssScale);
+  textLayer.style.setProperty('--total-scale-factor', cssScale);
   READER_COLORS.forEach(c=>{ if(readerHighlightSets[c]) readerHighlightSets[c].clear(); });
   try{
     const textContent = await page.getTextContent();
