@@ -459,6 +459,9 @@
     <select id="llm-provider" style="font-family:var(--mono);font-size:11px;padding:5px 6px;border:1px solid var(--line);border-radius:2px;">
       <option value="gemini">Gemini (free)</option>
       <option value="claude">Claude</option>
+      <option value="openai">GPT</option>
+      <option value="deepseek">DeepSeek</option>
+      <option value="grok">Grok</option>
     </select>
     <span class="key-widget" id="key-widget">
       <input type="password" id="api-key-input" placeholder="API key" style="font-family:var(--mono);font-size:11px;padding:5px 8px;border:1px solid var(--line);border-radius:2px;width:130px;">
@@ -625,6 +628,10 @@
     <h1 data-i18n="weak_title">Слабые места</h1>
     <p class="lede" data-i18n="weak_lede">Автоматически: всё с уверенностью 1–2. Плюс всё, что ты добавил вручную из UWorld/NBME.</p>
     <div id="weak-list"></div>
+
+    <div class="section-label" data-i18n="quiz_sessions_label">Разбор сессий квиза</div>
+    <p class="lede" data-i18n="quiz_sessions_lede">Каждая завершённая сессия квиза сохраняется здесь целиком — чтобы потом разобрать, где именно ошибся.</p>
+    <div id="quiz-sessions-list"></div>
   </div>
 
   <!-- LOG -->
@@ -704,6 +711,7 @@ const LANG = {
     key_hint:'Нужен API-ключ выбранного провайдера (вверху страницы). Ключ хранится только в этом браузере.',
     weak_empty:'Пока нет отмеченных слабых мест. Ставь уверенность 1–2 у тем, которые даются тяжело — они появятся здесь автоматически.',
     weak_open:'Открыть →', log_empty:'Пока пусто. Запиши первую сессию выше.', min_label:'мин',
+    quiz_sessions_label:'Разбор сессий квиза', quiz_sessions_lede:'Каждая завершённая сессия квиза сохраняется здесь целиком — чтобы потом разобрать, где именно ошибся.',
     weekdays:['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],
     months:['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
     locale:'ru-RU',
@@ -736,6 +744,7 @@ const LANG = {
     key_hint:'Needs an API key for the selected provider (top of the page). The key is stored only in this browser.',
     weak_empty:'No weak spots flagged yet. Rate confidence 1–2 on topics that feel shaky — they\'ll show up here automatically.',
     weak_open:'Open →', log_empty:'Nothing yet. Log your first session above.', min_label:'min',
+    quiz_sessions_label:'Quiz Session Reviews', quiz_sessions_lede:'Every finished quiz session is saved here in full — so you can go back and pinpoint exactly where you went wrong.',
     weekdays:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
     months:['January','February','March','April','May','June','July','August','September','October','November','December'],
     locale:'en-US',
@@ -902,6 +911,7 @@ let state = {
   custom: {},     // moduleId -> [{id, label}]
   log: {},        // ts -> {text}
   sessions: {},   // 'YYYY-MM-DD' -> [{min, moduleId, moduleName, pct, ts}]
+  quizSessions: {}, // sessionId -> {ts, moduleId, moduleName, debrief}
   targetDate: '',
   customSources: {}, // sourceId -> {name, modules}
   activeSourceId: 'firstaid',
@@ -1132,7 +1142,7 @@ async function generateSource(){
       const data = await resp.json();
       if(data.error) throw new Error(data.error.message||'Gemini error');
       raw = (data.candidates||[])[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
-    } else {
+    } else if(currentProvider() === 'claude'){
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -1141,6 +1151,21 @@ async function generateSource(){
       const data = await resp.json();
       if(data.error) throw new Error(data.error.message||'Claude error');
       raw = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    } else {
+      const endpoints = {
+        openai: {url:'https://api.openai.com/v1/chat/completions', model:'gpt-5-chat-latest'},
+        deepseek: {url:'https://api.deepseek.com/chat/completions', model:'deepseek-v4-flash'},
+        grok: {url:'https://api.x.ai/v1/chat/completions', model:'grok-4.6'}
+      };
+      const ep = endpoints[currentProvider()];
+      const resp = await fetch(ep.url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+apiKey},
+        body: JSON.stringify({model:ep.model, max_tokens:4000, messages:[{role:'system', content:sysPrompt},{role:'user', content:userContent}]})
+      });
+      const data = await resp.json();
+      if(data.error) throw new Error(data.error.message||'API error');
+      raw = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
     }
     const jsonMatch = raw.match(/\[[\s\S]*\]/);
     if(!jsonMatch) throw new Error(uiLang==='ru' ? 'Модель не вернула JSON' : 'Model did not return JSON');
@@ -1436,6 +1461,7 @@ function attachDbListener(){
     if(remote.custom) deepMerge(state.custom, remote.custom);
     if(remote.log) deepMerge(state.log, remote.log);
     if(remote.sessions) deepMerge(state.sessions, remote.sessions);
+    if(remote.quizSessions) deepMerge(state.quizSessions, remote.quizSessions);
     if(remote.targetDate !== undefined) state.targetDate = remote.targetDate;
     if(remote.selectedModules !== undefined) state.selectedModules = remote.selectedModules;
     if(remote.customSources) deepMerge(state.customSources, remote.customSources);
@@ -1529,7 +1555,8 @@ function expandKeyWidget(){
 function loadKeyForProvider(){
   const key = localStorage.getItem('usmleTutorApiKey_'+currentProvider()) || '';
   apiKeyInput.value = key;
-  apiKeyInput.placeholder = currentProvider()==='gemini' ? 'Gemini API key' : 'Claude API key';
+  const providerLabels = {gemini:'Gemini', claude:'Claude', openai:'OpenAI', deepseek:'DeepSeek', grok:'Grok'};
+  apiKeyInput.placeholder = (providerLabels[currentProvider()]||currentProvider()) + ' API key';
   if(key) validateAndSaveKey(false); else setKeyStatus('', 'No key');
 }
 providerSelect.value = currentProvider();
@@ -1549,9 +1576,24 @@ async function validateAndSaveKey(showChecking){
     if(provider === 'gemini'){
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key='+encodeURIComponent(key));
       ok = r.ok;
-    } else {
+    } else if(provider === 'claude'){
       const r = await fetch('https://api.anthropic.com/v1/models', {
         headers:{'x-api-key':key, 'anthropic-version':'2023-06-01'}
+      });
+      ok = r.ok;
+    } else if(provider === 'openai'){
+      const r = await fetch('https://api.openai.com/v1/models', {
+        headers:{'Authorization':'Bearer '+key}
+      });
+      ok = r.ok;
+    } else if(provider === 'deepseek'){
+      const r = await fetch('https://api.deepseek.com/models', {
+        headers:{'Authorization':'Bearer '+key}
+      });
+      ok = r.ok;
+    } else if(provider === 'grok'){
+      const r = await fetch('https://api.x.ai/v1/models', {
+        headers:{'Authorization':'Bearer '+key}
       });
       ok = r.ok;
     }
@@ -1651,7 +1693,8 @@ async function callClaude(modId, chatStore, saveFn, systemPrompt){
   const provider = currentProvider();
   const apiKey = localStorage.getItem('usmleTutorApiKey_'+provider);
   if(!apiKey){
-    alert('Введи API-ключ ('+(provider==='gemini'?'Gemini':'Claude')+') вверху страницы, чтобы пользоваться тьютором.');
+    const pName = {gemini:'Gemini', claude:'Claude', openai:'OpenAI', deepseek:'DeepSeek', grok:'Grok'}[provider] || provider;
+    alert('Введи API-ключ ('+pName+') вверху страницы, чтобы пользоваться тьютором.');
     return;
   }
   renderGlobalTutor();
@@ -1682,7 +1725,7 @@ async function callClaude(modId, chatStore, saveFn, systemPrompt){
         const textOut = cand ? (cand.content.parts||[]).map(p=>p.text||'').join('\n') : '';
         chatStore[modId].push({role:'assistant', content: textOut || '(пустой ответ)'});
       }
-    } else {
+    } else if(provider === 'claude'){
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method:'POST',
         headers:{
@@ -1703,6 +1746,29 @@ async function callClaude(modId, chatStore, saveFn, systemPrompt){
         chatStore[modId].push({role:'error', content:'Ошибка Claude API: '+(data.error.message||'неизвестная ошибка')});
       } else {
         const textOut = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+        chatStore[modId].push({role:'assistant', content: textOut || '(пустой ответ)'});
+      }
+    } else {
+      // OpenAI-compatible providers: GPT, DeepSeek, Grok
+      const endpoints = {
+        openai: {url:'https://api.openai.com/v1/chat/completions', model:'gpt-5-chat-latest'},
+        deepseek: {url:'https://api.deepseek.com/chat/completions', model:'deepseek-v4-flash'},
+        grok: {url:'https://api.x.ai/v1/chat/completions', model:'grok-4.6'}
+      };
+      const ep = endpoints[provider];
+      const messages = [{role:'system', content:systemPrompt}].concat(
+        chatStore[modId].map(m=>({role: m.role==='system-hidden' ? 'user' : m.role, content:m.content}))
+      );
+      const resp = await fetch(ep.url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+apiKey},
+        body: JSON.stringify({model:ep.model, messages, max_tokens:900})
+      });
+      const data = await resp.json();
+      if(data.error){
+        chatStore[modId].push({role:'error', content:'Ошибка API: '+(data.error.message||'неизвестная ошибка')});
+      } else {
+        const textOut = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
         chatStore[modId].push({role:'assistant', content: textOut || '(пустой ответ)'});
       }
     }
@@ -1786,6 +1852,15 @@ async function finishQuizCase(modId){
   quizChats[modId].push({role:'system-hidden', content:'Заверши кейс и дай финальный разбор по правилу 4.'});
   saveQuizChats();
   await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
+  // save the debrief as a permanent session record so failed/weak cases accumulate for review
+  const lastMsg = quizChats[modId][quizChats[modId].length-1];
+  if(lastMsg && lastMsg.role === 'assistant'){
+    const sessionId = 'qs_'+Date.now();
+    const record = {ts: Date.now(), moduleId: mod.id, moduleName: mod.name, debrief: lastMsg.content};
+    state.quizSessions[sessionId] = record;
+    writeKey('quizSessions/'+sessionId, record);
+    renderWeak();
+  }
 }
 function getItemState(modId, subId){
   return (state.progress[modId] && state.progress[modId][subId]) || {checked:false, confidence:0, note:''};
@@ -2018,16 +2093,44 @@ function renderWeak(){
   const list = document.getElementById('weak-list');
   if(!items.length){
     list.innerHTML = `<div class="empty">${t('weak_empty')}</div>`;
+  } else {
+    list.innerHTML = items.map(it=>`
+      <div class="weak-item">
+        <div>
+          <div class="wtitle">${it.label}</div>
+          <div class="wmod">${it.mod.name}${it.note? ' · '+it.note : ''}</div>
+        </div>
+        <div class="jump" onclick="openModule('${it.mod.id}')">${t('weak_open')}</div>
+      </div>`).join('');
+  }
+  renderQuizSessions();
+}
+function renderQuizSessions(){
+  const list = document.getElementById('quiz-sessions-list');
+  if(!list) return;
+  const entries = Object.entries(state.quizSessions || {}).sort((a,b)=>b[1].ts-a[1].ts);
+  if(!entries.length){
+    list.innerHTML = `<div class="empty">${uiLang==='ru' ? 'Пока нет завершённых сессий квиза.' : 'No finished quiz sessions yet.'}</div>`;
     return;
   }
-  list.innerHTML = items.map(it=>`
-    <div class="weak-item">
+  list.innerHTML = entries.map(([id, rec])=>{
+    const d = new Date(rec.ts);
+    return `<div class="weak-item">
       <div>
-        <div class="wtitle">${it.label}</div>
-        <div class="wmod">${it.mod.name}${it.note? ' · '+it.note : ''}</div>
+        <div class="wtitle">${rec.moduleName}</div>
+        <div class="wmod">${d.toLocaleDateString(t('locale'))} ${d.toLocaleTimeString(t('locale'),{hour:'2-digit',minute:'2-digit'})}</div>
       </div>
-      <div class="jump" onclick="openModule('${it.mod.id}')">${t('weak_open')}</div>
-    </div>`).join('');
+      <div class="jump" onclick="openQuizSession('${id}')">${t('weak_open')}</div>
+    </div>`;
+  }).join('');
+}
+function openQuizSession(id){
+  const rec = state.quizSessions[id];
+  if(!rec) return;
+  const d = new Date(rec.ts);
+  document.getElementById('note-modal-date').textContent = rec.moduleName + ' — ' + d.toLocaleDateString(t('locale'));
+  document.getElementById('note-modal-body').innerHTML = `<div class="note-modal-entry">${escapeHtml(rec.debrief)}</div>`;
+  document.getElementById('note-overlay').classList.add('show');
 }
 
 /* ---------- RENDER: LOG ---------- */
