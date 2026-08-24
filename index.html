@@ -520,9 +520,9 @@ function renderModuleDetail(){
     ).join('');
     const delBtn = s.isCustom ? `<span class="del-x" onclick="deleteCustom('${mod.id}','${s.subId}')">✕</span>` : '';
     return `<div class="item-row">
-      <input type="checkbox" ${st.checked?'checked':''} onchange="setItemState('${mod.id}','${s.subId}',{checked:this.checked})">
+      <input type="checkbox" id="chk-${mod.id}-${s.subId}" ${st.checked?'checked':''} onchange="setItemState('${mod.id}','${s.subId}',{checked:this.checked})">
       <div class="item-body">
-        <div class="item-name ${st.checked?'done':''}">${s.label}</div>
+        <div class="item-name ${st.checked?'done':''}" style="cursor:pointer;" onclick="document.getElementById('chk-${mod.id}-${s.subId}').click()">${s.label}</div>
         <div class="item-controls">
           <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);">уверенность:</span>
           <div class="conf-btns">${confBtns}</div>
