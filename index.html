@@ -127,6 +127,10 @@
   .source-paste{font-family:var(--sans); font-size:12.5px; padding:8px 10px; border:1px solid var(--line); border-radius:2px; min-height:70px; resize:vertical;}
   .source-file-input{font-family:var(--sans); font-size:12px;}
   .source-status{font-size:11.5px; color:var(--ink-soft); min-height:14px;}
+  .loading-dots span{display:inline-block; animation:dotBounce 1.4s infinite; opacity:.3;}
+  .loading-dots span:nth-child(2){animation-delay:.2s;}
+  .loading-dots span:nth-child(3){animation-delay:.4s;}
+  @keyframes dotBounce{0%,60%,100%{opacity:.3;} 30%{opacity:1;}}
   .source-status.error{color:var(--red);}
   .source-item{display:flex; align-items:center; justify-content:space-between; padding:8px 10px; font-size:13px; border-radius:2px; cursor:pointer;}
   .source-item:hover{background:var(--bg);}
@@ -588,7 +592,7 @@
       <span class="lede-inline" data-i18n="floating_schedule">Плавающий график</span>
 
       <div class="block-selector">
-        <button class="block-selector-btn" onclick="toggleSourcePanel()">Source: <span id="source-count-label">First Aid</span> ▾</button>
+        <button class="block-selector-btn" onclick="toggleSourcePanel()"><span data-i18n="source_label">Source</span>: <span id="source-count-label">First Aid</span> ▾</button>
         <div class="block-selector-panel" id="source-panel">
           <div id="source-list"></div>
           <div class="source-add-block">
@@ -711,6 +715,7 @@ const LANG = {
     source_name_placeholder:"Название источника (например: Anatomy Netter's)",
     source_paste_placeholder:'Вставь текст сюда (оглавление / главы) или загрузи файл ниже',
     source_generate_btn:'Сгенерировать блоки',
+    source_label:'Источник',
     target_label:'Дата:', days_left_label:'Осталось дней:',
     done_word:'готово', back_link:'← ко всем темам', add_placeholder:'Добавить тему из UWorld/NBME (например: Long QT drugs)',
     add_btn:'Добавить', confidence_label:'уверенность:', note_input_placeholder:'заметка / из какого UWorld блока',
@@ -744,6 +749,7 @@ const LANG = {
     source_name_placeholder:"Source name (e.g. Anatomy Netter's)",
     source_paste_placeholder:'Paste text here (table of contents / chapters) or upload a file below',
     source_generate_btn:'Generate Blocks',
+    source_label:'Source',
     target_label:'Target:', days_left_label:'Days left:',
     done_word:'done', back_link:'← back to all topics', add_placeholder:'Add a topic from UWorld/NBME (e.g. Long QT drugs)',
     add_btn:'Add', confidence_label:'confidence:', note_input_placeholder:'note / which UWorld block',
@@ -1087,6 +1093,10 @@ async function extractPdfText(file){
   }
   return {text, totalPages: pdf.numPages};
 }
+function setLoadingStatus(el, label){
+  el.innerHTML = label + ' <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>';
+  el.className = 'source-status';
+}
 async function generateSource(){
   const statusEl = document.getElementById('source-status');
   const nameInput = document.getElementById('source-name-input');
@@ -1139,6 +1149,7 @@ async function generateSource(){
       : `The user provided no source text — only a name: "${name}". Using your general knowledge of this book/course/subject, build a typical chapter/topic structure in the study-tracker format (module -> list of specific subtopics). If this is a known textbook (e.g. Netter's Anatomy, Kaplan Physiology, Robbins Pathology, etc.) — recall its real table of contents as accurately as you can from memory. If the name is obscure or ambiguous, build a reasonable generic structure for a subject with that name. Output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"Category group name","subs":["Subtopic 1","Subtopic 2", ...]}]. Choose the "cat" field yourself — group into meaningful blocks natural to this specific subject (not generic labels like "General"/"Organ"). 8-20 modules, each with 5-15 specific subtopics.`);
 
   const userContent = text || `Source name: ${name}`;
+  setLoadingStatus(statusEl, uiLang==='ru' ? 'Генерирую структуру блоков' : 'Generating block structure');
   try{
     let raw;
     if(currentProvider() === 'gemini'){
@@ -1251,7 +1262,16 @@ async function generateSource(){
     nameInput.value = '';
     pasteEl.value = '';
     fileInput.value = '';
-    statusEl.textContent = uiLang==='ru' ? `Готово — ${modules.length} блоков создано.` : `Done — ${modules.length} blocks created.`;
+    const withPages = modules.filter(m=>m.pages).length;
+    let statusMsg;
+    if(uiLang==='ru'){
+      statusMsg = `Готово — ${modules.length} блоков создано.`;
+      if(pdfFile) statusMsg += ` PDF прочитан (${totalPages||'?'} стр. всего), страницы найдены для ${withPages} из ${modules.length} тем.`;
+    } else {
+      statusMsg = `Done — ${modules.length} blocks created.`;
+      if(pdfFile) statusMsg += ` PDF read (${totalPages||'?'} pages total), page ranges found for ${withPages} of ${modules.length} topics.`;
+    }
+    statusEl.textContent = statusMsg;
     statusEl.className = 'source-status';
   }catch(e){
     const isNetworkError = /load failed|network|fetch/i.test(e.message||'');
