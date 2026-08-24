@@ -52,6 +52,11 @@
   #sync-dot{width:7px; height:7px; border-radius:50%; background:#c9b98a; display:inline-block; margin-right:5px;}
   #sync-dot.on{background:var(--green);}
   #sync-dot.off{background:var(--red);}
+  .key-status{font-family:var(--mono); font-size:11px; color:var(--ink-soft); display:inline-flex; align-items:center; gap:5px;}
+  .key-dot{width:7px; height:7px; border-radius:50%; background:#bbb; display:inline-block; flex-shrink:0;}
+  .key-dot.checking{background:var(--amber); animation:blink 1s infinite;}
+  .key-dot.active{background:var(--green);}
+  .key-dot.error{background:var(--red);}
 
   nav{
     display:flex; gap:2px; padding:0 20px; background:var(--paper); border-bottom:1px solid var(--line);
@@ -251,6 +256,7 @@
       <option value="claude">Claude</option>
     </select>
     <input type="password" id="api-key-input" placeholder="API ключ" style="font-family:var(--mono);font-size:11px;padding:5px 8px;border:1px solid var(--line);border-radius:2px;width:130px;">
+    <span class="key-status" id="key-status"><span class="key-dot" id="key-dot"></span><span id="key-status-text">нет ключа</span></span>
     <span><span id="sync-dot"></span><span id="sync-label">connecting…</span></span>
     <span>Target: <input type="date" id="target-date"></span>
     <span>Days left: <b id="days-left">—</b></span>
@@ -474,10 +480,18 @@ function writeKey(path, value){
 /* ---------- API KEY & PROVIDER (local only, never synced to Firebase) ---------- */
 const providerSelect = document.getElementById('llm-provider');
 const apiKeyInput = document.getElementById('api-key-input');
+const keyDot = document.getElementById('key-dot');
+const keyStatusText = document.getElementById('key-status-text');
 function currentProvider(){ return localStorage.getItem('usmleTutorProvider') || 'gemini'; }
+function setKeyStatus(state, text){
+  keyDot.className = 'key-dot ' + state;
+  keyStatusText.textContent = text;
+}
 function loadKeyForProvider(){
-  apiKeyInput.value = localStorage.getItem('usmleTutorApiKey_'+currentProvider()) || '';
+  const key = localStorage.getItem('usmleTutorApiKey_'+currentProvider()) || '';
+  apiKeyInput.value = key;
   apiKeyInput.placeholder = currentProvider()==='gemini' ? 'Gemini API ключ' : 'Claude API ключ';
+  if(key) validateAndSaveKey(false); else setKeyStatus('', 'нет ключа');
 }
 providerSelect.value = currentProvider();
 loadKeyForProvider();
@@ -485,9 +499,30 @@ providerSelect.addEventListener('change', ()=>{
   localStorage.setItem('usmleTutorProvider', providerSelect.value);
   loadKeyForProvider();
 });
-apiKeyInput.addEventListener('change', ()=>{
-  localStorage.setItem('usmleTutorApiKey_'+currentProvider(), apiKeyInput.value.trim());
-});
+async function validateAndSaveKey(showChecking){
+  const provider = currentProvider();
+  const key = apiKeyInput.value.trim();
+  localStorage.setItem('usmleTutorApiKey_'+provider, key);
+  if(!key){ setKeyStatus('', 'нет ключа'); return; }
+  if(showChecking !== false) setKeyStatus('checking', 'проверка…');
+  try{
+    let ok = false;
+    if(provider === 'gemini'){
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key='+encodeURIComponent(key));
+      ok = r.ok;
+    } else {
+      const r = await fetch('https://api.anthropic.com/v1/models', {
+        headers:{'x-api-key':key, 'anthropic-version':'2023-06-01'}
+      });
+      ok = r.ok;
+    }
+    setKeyStatus(ok?'active':'error', ok?'активен':'ошибка ключа');
+  } catch(e){
+    setKeyStatus('error', 'нет связи');
+  }
+}
+apiKeyInput.addEventListener('blur', ()=>validateAndSaveKey(true));
+apiKeyInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ apiKeyInput.blur(); } });
 
 /* ---------- TUTOR CHAT ---------- */
 let tutorChats = {}; // modId -> [{role, content}], local-only (not synced)
