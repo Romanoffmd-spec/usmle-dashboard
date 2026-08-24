@@ -245,18 +245,42 @@
   }
   #pomo-time.show{display:block;}
 
-  #pomo-panel{
-    position:fixed; left:18px; bottom:84px; z-index:50; background:var(--paper); border:1px solid var(--line);
-    border-radius:var(--radius); box-shadow:0 8px 22px rgba(0,0,0,.16); padding:14px; width:200px; display:none;
+  #pomo-big{
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(.85); z-index:60;
+    width:290px; max-width:82vw; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease;
   }
-  #pomo-panel.open{display:block;}
-  #pomo-panel .pomo-title{font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); margin-bottom:10px;}
-  .pomo-durations{display:flex; gap:6px; margin-bottom:10px;}
-  .pomo-durations button{flex:1; font-family:var(--mono); font-size:12px; padding:8px 4px; border:1px solid var(--line); background:var(--bg); border-radius:2px; cursor:pointer; color:var(--ink);}
-  .pomo-durations button.active{background:var(--teal); color:#fff; border-color:var(--teal);}
-  .pomo-controls{display:flex; gap:6px;}
-  .pomo-controls button{flex:1; font-family:var(--mono); font-size:11.5px; padding:8px 4px; border-radius:2px; cursor:pointer; border:1px solid var(--teal); background:none; color:var(--teal);}
-  .pomo-controls button.primary{background:var(--teal); color:#fff;}
+  #pomo-big.open{opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1);}
+  .pomo-big-inner{position:relative; width:100%; aspect-ratio:1/1;}
+  .pomo-flap{
+    position:absolute; top:0; width:50%; height:100%; background:linear-gradient(135deg,#e2564a,#c73d31);
+    box-shadow:0 10px 28px rgba(0,0,0,.22); transition:transform .45s cubic-bezier(.34,1.4,.4,1);
+  }
+  .pomo-flap.left{left:0; border-radius:145px 0 0 145px; transform-origin:left center; transform:rotateY(0deg);}
+  .pomo-flap.right{right:0; border-radius:0 145px 145px 0; transform-origin:right center; transform:rotateY(0deg);}
+  #pomo-big.open .pomo-flap.left{transform:rotateY(-118deg);}
+  #pomo-big.open .pomo-flap.right{transform:rotateY(118deg);}
+  .pomo-stem{position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:26px; z-index:5;}
+  .pomo-face{
+    position:absolute; inset:8%; border-radius:50%; background:var(--paper); border:3px solid #a8362c;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:inset 0 0 0 1px rgba(0,0,0,.03);
+  }
+  .pomo-digits{font-family:var(--mono); font-size:26px; font-weight:700; color:var(--teal-deep); letter-spacing:1px; margin-bottom:14px;}
+  .pomo-digits span{display:inline-block; min-width:28px; text-align:center;}
+  .pomo-hands-row{display:flex; align-items:center; gap:18px;}
+  .pomo-hand{
+    width:0; height:0; cursor:pointer; opacity:.85; transition:opacity .15s, transform .15s;
+  }
+  .pomo-hand:active{transform:scale(.85);}
+  .pomo-hand:hover{opacity:1;}
+  .pomo-hand.left{border-top:9px solid transparent; border-bottom:9px solid transparent; border-right:16px solid var(--teal);}
+  .pomo-hand.right{border-top:9px solid transparent; border-bottom:9px solid transparent; border-left:16px solid var(--teal);}
+  .pomo-hand-label{font-family:var(--mono); font-size:9px; color:var(--ink-soft); text-align:center; margin-top:3px;}
+  .pomo-big-controls{display:flex; gap:8px; justify-content:center; margin-top:16px;}
+  .pomo-big-controls button{
+    font-family:var(--mono); font-size:11px; text-transform:uppercase; padding:8px 13px; border-radius:20px;
+    cursor:pointer; border:1px solid var(--teal); background:var(--paper); color:var(--teal);
+  }
+  .pomo-big-controls button.primary{background:var(--teal); color:#fff;}
 
   #pomo-overlay{
     position:fixed; inset:0; background:rgba(23,50,47,.55); z-index:200; display:none;
@@ -340,16 +364,29 @@
 </button>
 <div id="pomo-time"></div>
 
-<div id="pomo-panel">
-  <div class="pomo-title">Pomodoro</div>
-  <div class="pomo-durations">
-    <button onclick="pomoSetDuration(25)" id="pomo-dur-25" class="active">25</button>
-    <button onclick="pomoSetDuration(50)" id="pomo-dur-50">50</button>
-    <button onclick="pomoCustomDuration()" id="pomo-dur-custom">…</button>
-  </div>
-  <div class="pomo-controls">
-    <button class="primary" id="pomo-start-btn" onclick="pomoStart()">Start</button>
-    <button id="pomo-reset-btn" onclick="pomoReset()">Reset</button>
+<div id="pomo-big">
+  <div class="pomo-stem">🌿</div>
+  <div class="pomo-big-inner">
+    <div class="pomo-face">
+      <div class="pomo-digits"><span id="pomo-h">00</span>:<span id="pomo-m">25</span>:<span id="pomo-s">00</span></div>
+      <div class="pomo-hands-row">
+        <div>
+          <div class="pomo-hand left" onclick="pomoAdjust(10)"></div>
+          <div class="pomo-hand-label">+10</div>
+        </div>
+        <div>
+          <div class="pomo-hand right" onclick="pomoAdjust(-10)"></div>
+          <div class="pomo-hand-label">−10</div>
+        </div>
+      </div>
+      <div class="pomo-big-controls">
+        <button class="primary" id="pomo-big-start" onclick="pomoBigStart()">Start</button>
+        <button id="pomo-big-pause" onclick="pomoPauseToggle()" style="display:none;">Pause</button>
+        <button onclick="pomoReset()">Reset</button>
+      </div>
+    </div>
+    <div class="pomo-flap left"></div>
+    <div class="pomo-flap right"></div>
   </div>
 </div>
 
@@ -531,81 +568,115 @@ const POMO_PHRASES = [
   "You're closer to game day.","That's a strong block.","Keep stacking these sessions.","You're leveling up.",
   "Take five, you earned it."
 ];
-let pomoDurationMin = 25;
+let pomoRemainingSec = 25*60;   // idle preset value (editable)
+let pomoState = 'idle';         // 'idle' | 'running' | 'paused'
 let pomoInterval = null;
 let pomoEndTime = null;
-let pomoRunning = false;
 
 const pomoBtn = document.getElementById('pomo-btn');
 const pomoTimeEl = document.getElementById('pomo-time');
 const pomoDial = document.getElementById('pomo-dial');
-const pomoPanel = document.getElementById('pomo-panel');
+const pomoBig = document.getElementById('pomo-big');
+const pomoStartBtn = document.getElementById('pomo-big-start');
+const pomoPauseBtn = document.getElementById('pomo-big-pause');
 
 function togglePomoPanel(){
-  pomoPanel.classList.toggle('open');
+  pomoBig.classList.toggle('open');
+  updatePomoDigits();
 }
-document.addEventListener('click', e=>{
-  if(pomoPanel.classList.contains('open') && !e.target.closest('#pomo-panel') && !e.target.closest('#pomo-btn')){
-    pomoPanel.classList.remove('open');
-  }
-});
-function pomoSetDuration(min){
-  pomoDurationMin = min;
-  document.getElementById('pomo-dur-25').classList.toggle('active', min===25);
-  document.getElementById('pomo-dur-50').classList.toggle('active', min===50);
-  document.getElementById('pomo-dur-custom').classList.remove('active');
+function formatHMS(totalSec){
+  totalSec = Math.max(0, Math.round(totalSec));
+  const h = Math.floor(totalSec/3600);
+  const m = Math.floor((totalSec%3600)/60);
+  const s = totalSec%60;
+  return {h:String(h).padStart(2,'0'), m:String(m).padStart(2,'0'), s:String(s).padStart(2,'0')};
 }
-function pomoCustomDuration(){
-  const val = prompt('Сколько минут?', '15');
-  const n = parseInt(val, 10);
-  if(n && n > 0 && n <= 180){
-    pomoDurationMin = n;
-    document.getElementById('pomo-dur-25').classList.remove('active');
-    document.getElementById('pomo-dur-50').classList.remove('active');
-    document.getElementById('pomo-dur-custom').classList.add('active');
-    document.getElementById('pomo-dur-custom').textContent = n;
-  }
+function currentDisplaySeconds(){
+  if(pomoState === 'running') return Math.max(0, (pomoEndTime - Date.now())/1000);
+  return pomoRemainingSec;
 }
-function pomoStart(){
-  const totalSec = pomoDurationMin * 60;
+function updatePomoDigits(){
+  const {h,m,s} = formatHMS(currentDisplaySeconds());
+  document.getElementById('pomo-h').textContent = h;
+  document.getElementById('pomo-m').textContent = m;
+  document.getElementById('pomo-s').textContent = s;
+  if(pomoTimeEl.classList.contains('show')) pomoTimeEl.textContent = m+':'+s;
+}
+function pomoAdjust(deltaMin){
+  if(pomoState !== 'idle') return; // hands only edit before starting
+  pomoRemainingSec = Math.min(180*60, Math.max(60, pomoRemainingSec + deltaMin*60));
+  updatePomoDigits();
+}
+function pomoBigStart(){
+  const totalSec = pomoState === 'paused' ? pomoRemainingSec : pomoRemainingSec;
   pomoEndTime = Date.now() + totalSec*1000;
   localStorage.setItem('pomoEndTime', pomoEndTime);
   localStorage.setItem('pomoDurationSec', totalSec);
-  pomoRunning = true;
-  pomoPanel.classList.remove('open');
+  pomoState = 'running';
   pomoBtn.classList.add('running');
   pomoDial.style.animation = `pomoSpin ${totalSec}s linear forwards`;
   pomoTimeEl.classList.add('show');
+  pomoStartBtn.style.display = 'none';
+  pomoPauseBtn.style.display = '';
+  pomoPauseBtn.textContent = 'Pause';
   pomoTick();
   if(pomoInterval) clearInterval(pomoInterval);
   pomoInterval = setInterval(pomoTick, 1000);
 }
+function pomoPauseToggle(){
+  if(pomoState === 'running'){
+    pomoRemainingSec = Math.max(0, (pomoEndTime - Date.now())/1000);
+    clearInterval(pomoInterval);
+    pomoState = 'paused';
+    pomoBtn.classList.remove('running');
+    pomoDial.style.animationPlayState = 'paused';
+    pomoPauseBtn.textContent = 'Resume';
+    localStorage.removeItem('pomoEndTime');
+    updatePomoDigits();
+  } else if(pomoState === 'paused'){
+    pomoEndTime = Date.now() + pomoRemainingSec*1000;
+    localStorage.setItem('pomoEndTime', pomoEndTime);
+    localStorage.setItem('pomoDurationSec', pomoRemainingSec);
+    pomoState = 'running';
+    pomoBtn.classList.add('running');
+    pomoDial.style.animation = `pomoSpin ${pomoRemainingSec}s linear forwards`;
+    pomoPauseBtn.textContent = 'Pause';
+    if(pomoInterval) clearInterval(pomoInterval);
+    pomoInterval = setInterval(pomoTick, 1000);
+  }
+}
 function pomoReset(){
-  pomoRunning = false;
+  pomoState = 'idle';
   clearInterval(pomoInterval);
   pomoBtn.classList.remove('running');
   pomoDial.style.animation = 'none';
   pomoTimeEl.classList.remove('show');
+  pomoRemainingSec = 25*60;
+  pomoStartBtn.style.display = '';
+  pomoPauseBtn.style.display = 'none';
   localStorage.removeItem('pomoEndTime');
   localStorage.removeItem('pomoDurationSec');
+  updatePomoDigits();
 }
 function pomoTick(){
   const remaining = Math.max(0, Math.round((pomoEndTime - Date.now())/1000));
-  const mm = String(Math.floor(remaining/60)).padStart(2,'0');
-  const ss = String(remaining%60).padStart(2,'0');
-  pomoTimeEl.textContent = mm+':'+ss;
+  updatePomoDigits();
   if(remaining <= 0){
     pomoComplete();
   }
 }
 function pomoComplete(){
   clearInterval(pomoInterval);
-  pomoRunning = false;
+  pomoState = 'idle';
   pomoBtn.classList.remove('running');
   pomoDial.style.animation = 'none';
   pomoTimeEl.classList.remove('show');
+  pomoRemainingSec = 25*60;
+  pomoStartBtn.style.display = '';
+  pomoPauseBtn.style.display = 'none';
   localStorage.removeItem('pomoEndTime');
   localStorage.removeItem('pomoDurationSec');
+  updatePomoDigits();
   playPomoSound();
   const phrase = POMO_PHRASES[Math.floor(Math.random()*POMO_PHRASES.length)];
   document.getElementById('pomo-msg-title').textContent = phrase;
@@ -631,6 +702,8 @@ function playPomoSound(){
     });
   }catch(e){}
 }
+// live label on the small button + digits refresh every second regardless of big panel state
+setInterval(()=>{ if(pomoState === 'running') updatePomoDigits(); }, 1000);
 // resume a running timer across page reloads/tab switches
 (function resumePomo(){
   const saved = localStorage.getItem('pomoEndTime');
@@ -639,12 +712,14 @@ function playPomoSound(){
     const end = parseInt(saved, 10);
     if(end > Date.now()){
       pomoEndTime = end;
-      pomoRunning = true;
+      pomoState = 'running';
       pomoBtn.classList.add('running');
       const remainingNow = (end - Date.now())/1000;
       pomoDial.style.animation = `pomoSpin ${savedDur}s linear forwards`;
       pomoDial.style.animationDelay = (-(savedDur - remainingNow)) + 's';
       pomoTimeEl.classList.add('show');
+      pomoStartBtn.style.display = 'none';
+      pomoPauseBtn.style.display = '';
       pomoTick();
       pomoInterval = setInterval(pomoTick, 1000);
     } else {
@@ -652,6 +727,7 @@ function playPomoSound(){
       localStorage.removeItem('pomoDurationSec');
     }
   }
+  updatePomoDigits();
 })();
 
 /* ---------- FIREBASE SYNC (per-key merge, never full replace) ---------- */
