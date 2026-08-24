@@ -134,16 +134,16 @@
   .source-item .src-del{color:var(--red); cursor:pointer; font-family:var(--mono); font-size:12px;}
   .source-item .src-attach{cursor:pointer; font-size:13px;}
 
-  .module-grid{display:grid; grid-template-columns:repeat(auto-fill,260px); gap:10px;}
-  #grid-container, #mgrid-container{display:flex; flex-wrap:wrap; gap:22px 30px; align-items:flex-start;}
-  .category-block{display:flex; flex-direction:column; flex:0 0 auto;}
+  .module-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(0,1fr)); gap:10px;}
+  #grid-container, #mgrid-container{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:22px 30px; align-items:start;}
+  .category-block{display:flex; flex-direction:column; min-width:0;}
   .category-block .section-label{margin:0 0 10px;}
   .module-card{
     background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
-    padding:14px 16px; cursor:pointer; transition:border-color .12s;
+    padding:14px 16px; cursor:pointer; transition:border-color .12s; min-width:0; overflow:hidden;
   }
   .module-card:hover{border-color:var(--teal);}
-  .module-card .mname{font-weight:600; font-size:14.5px; margin-bottom:8px;}
+  .module-card .mname{font-weight:600; font-size:14.5px; margin-bottom:8px; overflow-wrap:break-word;}
   .ticks{display:flex; gap:3px; flex-wrap:wrap; margin-bottom:8px;}
   .tick{width:11px; height:16px; border:1px solid var(--line); border-radius:1px; background:var(--bg);}
   .tick.done{background:var(--teal); border-color:var(--teal);}
