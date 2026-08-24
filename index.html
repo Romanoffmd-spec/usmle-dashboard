@@ -294,6 +294,7 @@
   }
   .tutor-toggle-bar .chev{transition:transform .22s ease; color:var(--ink-soft);}
   .tutor-panel.open .tutor-toggle-bar .chev{transform:rotate(180deg);}
+  .tutor-mode-label{display:flex; align-items:center; gap:7px;}
   .tutor-body{padding:10px 16px 16px; overflow-y:auto; max-height:calc(78vh - 48px);}
   .tutor-messages{max-height:none; flex:1; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;}
   .tutor-msg{padding:9px 12px; border-radius:8px; font-size:13.5px; line-height:1.45; max-width:92%;}
@@ -318,15 +319,19 @@
   body.tutor-active main{padding-bottom:60px;}
   @media (min-width:900px){
     .tutor-panel{
-      top:132px; right:0; bottom:0; left:auto; width:46px; min-width:0; max-width:none;
+      top:132px; right:0; bottom:0; left:auto; width:52px; min-width:0; max-width:none;
       max-height:none; border-top:none; border-left:1px solid var(--line); border-radius:0; box-shadow:none;
       display:flex; flex-direction:column; overflow:hidden; transition:width .18s ease;
     }
     .tutor-panel.open{width:340px;}
-    .tutor-toggle-bar{cursor:pointer; flex-direction:column-reverse; height:100%; padding:16px 0; justify-content:flex-start; gap:10px;}
-    .tutor-panel.open .tutor-toggle-bar{flex-direction:row; height:auto; padding:13px 16px; justify-content:space-between;}
-    .tutor-toggle-bar span:first-child{writing-mode:vertical-rl; white-space:nowrap; letter-spacing:.02em;}
-    .tutor-panel.open .tutor-toggle-bar span:first-child{writing-mode:horizontal-tb;}
+    .tutor-toggle-bar{cursor:pointer; flex-direction:column; height:100%; padding:18px 0; justify-content:flex-start; align-items:center; gap:12px;}
+    .tutor-panel.open .tutor-toggle-bar{flex-direction:row; height:auto; padding:13px 16px; justify-content:space-between; align-items:center;}
+    .tutor-mode-label{flex-direction:column; gap:0;}
+    .tutor-panel.open .tutor-mode-label{flex-direction:row; gap:7px;}
+    .tutor-mode-icon{font-size:22px; line-height:1;}
+    .tutor-panel.open .tutor-mode-icon{font-size:16px;}
+    .tutor-mode-text{display:none;}
+    .tutor-panel.open .tutor-mode-text{display:inline;}
     .tutor-toggle-bar .chev{transform:rotate(90deg);}
     .tutor-panel.open .tutor-toggle-bar .chev{transform:rotate(180deg);}
     .tutor-panel:not(.open) .tutor-body{display:none;}
@@ -706,7 +711,7 @@ const LANG = {
     source_name_placeholder:"Название источника (например: Anatomy Netter's)",
     source_paste_placeholder:'Вставь текст сюда (оглавление / главы) или загрузи файл ниже',
     source_generate_btn:'Сгенерировать блоки',
-    target_label:'Target:', days_left_label:'Days left:',
+    target_label:'Дата:', days_left_label:'Осталось дней:',
     done_word:'готово', back_link:'← ко всем темам', add_placeholder:'Добавить тему из UWorld/NBME (например: Long QT drugs)',
     add_btn:'Добавить', confidence_label:'уверенность:', note_input_placeholder:'заметка / из какого UWorld блока',
     lecture_btn:'📖 Лекция', tutor_mode:'🎓 Тьютор мод', tutor_tab:'Тьютор', quiz_tab:'Квиз',
@@ -1123,8 +1128,8 @@ async function generateSource(){
     statusEl.className = 'source-status';
   }
 
-  const pagesInstructionRu = pdfFile ? ` Текст размечен маркерами вида [PAGE N] перед содержимым каждой страницы исходного PDF. Добавь в каждый объект поле "pages":"начало-конец" — реальный диапазон номеров страниц (по этим маркерам), на которых расположен материал данного модуля. Если модуль выходит за пределы просмотренного фрагмента — укажи диапазон в пределах видимого текста максимально точно.` : '';
-  const pagesInstructionEn = pdfFile ? ` The text is marked with [PAGE N] markers before each source PDF page's content. Add a "pages":"start-end" field to each object — the real page-number range (from these markers) where that module's material is located. If a module extends beyond the reviewed excerpt, give the range within the visible text as accurately as possible.` : '';
+  const pagesInstructionRu = pdfFile ? ` Текст размечен маркерами вида [PAGE N] перед содержимым каждой страницы исходного PDF. Добавь в каждый объект поле "pages":"начало-конец" — реальный диапазон номеров страниц (по этим маркерам), на которых расположен материал данного модуля. Если модуль выходит за пределы просмотренного фрагмента — укажи диапазон в пределах видимого текста максимально точно. ВАЖНО: название модуля ("name") и все подтемы ("subs") пиши НА ТОМ ЖЕ ЯЗЫКЕ, что и сам исходный текст источника (обычно английский), а не на русском — это нужно, чтобы термины совпадали с текстом книги дословно и можно было потом точно найти нужные страницы.` : '';
+  const pagesInstructionEn = pdfFile ? ` The text is marked with [PAGE N] markers before each source PDF page's content. Add a "pages":"start-end" field to each object — the real page-number range (from these markers) where that module's material is located. If a module extends beyond the reviewed excerpt, give the range within the visible text as accurately as possible. IMPORTANT: write the module name ("name") and all subtopics ("subs") in the SAME LANGUAGE as the source text itself (usually English) — this is needed so terms match the book's wording exactly for page lookup.` : '';
   const sysPrompt = text
     ? (uiLang==='ru'
       ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения. Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"Название категории-группы","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat" — придумай сам, исходя из природы этого конкретного источника: сгруппируй модули по смысловым блокам, естественным для этого предмета (например, для анатомии — по системам органов; для фармакологии — по классам препаратов вроде "Антибиотики", "Анальгетики"; для хирургии — по типам операций; и т.д.). Не используй общие ярлыки вроде "General"/"Organ" — категория должна быть содержательной и понятной именно для этого источника. Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.${pagesInstructionRu}`
@@ -1680,7 +1685,7 @@ function renderTutorPanel(mod){
   const placeholder = placeholderSet[Math.floor(Math.random()*placeholderSet.length)];
   return `<div class="tutor-panel ${tutorOpen?'open':''}" id="tutor-panel">
     <div class="tutor-toggle-bar" onclick="toggleTutor()">
-      <span>${t('tutor_mode')}</span>
+      <span class="tutor-mode-label"><span class="tutor-mode-icon">🎓</span><span class="tutor-mode-text">${t('tutor_mode')}</span></span>
       <span class="chev">▲</span>
     </div>
     <div class="tutor-body">
