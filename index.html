@@ -132,6 +132,7 @@
   .source-item:hover{background:var(--bg);}
   .source-item.active{background:var(--mint); font-weight:600;}
   .source-item .src-del{color:var(--red); cursor:pointer; font-family:var(--mono); font-size:12px;}
+  .source-item .src-attach{cursor:pointer; font-size:13px;}
 
   .module-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px;}
   .module-card{
@@ -977,10 +978,29 @@ function renderSourcePanel(){
   label.textContent = sources[activeSourceId].name;
   list.innerHTML = Object.entries(sources).map(([id, src])=>{
     const delBtn = src.builtin ? '' : `<span class="src-del" onclick="event.stopPropagation(); deleteSource('${id}')">✕</span>`;
+    const pdfBtn = (!src.builtin && src.hasPdf)
+      ? `<span class="src-attach" title="${uiLang==='ru'?'Прикрепить PDF на этом устройстве':'Attach PDF on this device'}" onclick="event.stopPropagation(); triggerAttachPdf('${id}')">📎</span>`
+      : '';
     return `<div class="source-item ${id===activeSourceId?'active':''}" onclick="switchSource('${id}')">
-      <span>${src.name}</span>${delBtn}
+      <span>${src.name}</span><span style="display:flex; align-items:center; gap:8px;">${pdfBtn}${delBtn}</span>
     </div>`;
   }).join('');
+}
+function triggerAttachPdf(sourceId){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.pdf';
+  input.onchange = async ()=>{
+    if(!input.files[0]) return;
+    try{
+      await savePdfLocally(sourceId, input.files[0]);
+      readerPdfDoc = null; readerSourceId = null; // force reload next time reader opens
+      alert(uiLang==='ru' ? 'PDF прикреплён на этом устройстве.' : 'PDF attached on this device.');
+    }catch(e){
+      alert((uiLang==='ru'?'Не удалось сохранить файл: ':'Could not save file: ')+e.message);
+    }
+  };
+  input.click();
 }
 function switchSource(id){
   if(!sources[id]) return;
