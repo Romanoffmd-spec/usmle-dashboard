@@ -318,15 +318,20 @@
   body.tutor-active main{padding-bottom:60px;}
   @media (min-width:900px){
     .tutor-panel{
-      top:132px; right:0; bottom:0; left:auto; width:20vw; min-width:280px; max-width:400px;
+      top:132px; right:0; bottom:0; left:auto; width:46px; min-width:0; max-width:none;
       max-height:none; border-top:none; border-left:1px solid var(--line); border-radius:0; box-shadow:none;
-      display:flex; flex-direction:column;
+      display:flex; flex-direction:column; overflow:hidden; transition:width .18s ease;
     }
-    .tutor-toggle-bar{cursor:default;}
-    .tutor-toggle-bar .chev{display:none;}
-    .tutor-body{max-height:none; flex:1; display:flex; flex-direction:column; padding:10px 16px 16px;}
-    body.tutor-active main{padding-bottom:22px; margin-right:20vw;}
-    @media (max-width:1099px){ body.tutor-active main{margin-right:280px;} }
+    .tutor-panel.open{width:340px;}
+    .tutor-toggle-bar{cursor:pointer; flex-direction:column-reverse; height:100%; padding:16px 0; justify-content:flex-start; gap:10px;}
+    .tutor-panel.open .tutor-toggle-bar{flex-direction:row; height:auto; padding:13px 16px; justify-content:space-between;}
+    .tutor-toggle-bar span:first-child{writing-mode:vertical-rl; white-space:nowrap; letter-spacing:.02em;}
+    .tutor-panel.open .tutor-toggle-bar span:first-child{writing-mode:horizontal-tb;}
+    .tutor-toggle-bar .chev{transform:rotate(90deg);}
+    .tutor-panel.open .tutor-toggle-bar .chev{transform:rotate(180deg);}
+    .tutor-panel:not(.open) .tutor-body{display:none;}
+    .tutor-body{max-height:none; flex:1; display:flex; flex-direction:column; padding:10px 16px 16px; overflow-y:auto;}
+    body.tutor-open main{padding-bottom:22px; margin-right:340px;}
   }
 
   input[type=date]{font-family:var(--mono); font-size:12px; border:1px solid var(--line); border-radius:2px; padding:5px 8px;}
@@ -1196,16 +1201,23 @@ async function generateSource(){
       for(const mk of pageMarkers){ if(mk.index<=idx) result=mk.page; else break; }
       return result;
     }
+    const STOPWORDS = new Set(['and','the','for','with','from','into','their','which','these','those','about','after','before','during','through','without','within','between','other','general','basic','principles','overview','introduction','common','various','different','specific']);
     function inferPagesFromText(moduleName, subs){
       if(!pageMarkers.length) return null;
       const lowerText = text.toLowerCase();
       const phrases = [moduleName, ...(subs||[])].filter(Boolean);
-      const found = [];
+      const words = new Set();
       phrases.forEach(p=>{
-        const idx = lowerText.indexOf(p.toLowerCase());
+        p.toLowerCase().split(/[^a-zа-яё0-9]+/).forEach(w=>{
+          if(w.length>=6 && !STOPWORDS.has(w)) words.add(w);
+        });
+      });
+      const found = [];
+      words.forEach(w=>{
+        const idx = lowerText.indexOf(w);
         if(idx !== -1) found.push(pageAtIndex(idx));
       });
-      if(!found.length) return null;
+      if(found.length < 2) return null; // require at least 2 distinct term matches to be confident
       return {from: Math.min(...found), to: Math.max(...found)};
     }
 
@@ -1650,6 +1662,7 @@ function toggleTutor(){
   const panel = document.getElementById('tutor-panel');
   if(panel) panel.classList.toggle('open', tutorOpen);
   document.body.classList.toggle('tutor-sheet-open', tutorOpen);
+  document.body.classList.toggle('tutor-open', tutorOpen);
 }
 function renderTutorPanel(mod){
   const isQuiz = panelTab === 'quiz';
@@ -1809,6 +1822,7 @@ async function requestLecture(modId, label){
   const panel = document.getElementById('tutor-panel');
   if(panel) panel.classList.add('open');
   document.body.classList.add('tutor-sheet-open');
+  document.body.classList.add('tutor-open');
   const text = uiLang === 'ru'
     ? `Дай мини-лекцию по теме «${label}» в рамках этого блока — структурированно объясни ключевые механизмы, факты и клинические связи на уровне First Aid, своими словами, без дословного цитирования учебников. В конце — 1-2 вопроса на активное вспоминание.`
     : `Give me a mini-lecture on "${label}" within this block — structured explanation of the key mechanisms, facts, and clinical correlations at First Aid level, in your own words, no verbatim textbook quoting. End with 1-2 active recall questions.`;
