@@ -875,6 +875,12 @@ function saveLocal(){
 loadLocal();
 
 /* ---------- SOURCE MANAGEMENT ---------- */
+function reconcileSelectedModules(){
+  const validIds = new Set(MODULES.map(m=>m.id));
+  let sel = (state.selectedModules || []).filter(id => validIds.has(id));
+  if(sel.length === 0) sel = MODULES.map(m=>m.id);
+  state.selectedModules = sel;
+}
 function rebuildSourcesRegistry(){
   sources = {firstaid: {name:'First Aid 2025', modules: MODULES_FIRSTAID, builtin:true}};
   Object.entries(state.customSources || {}).forEach(([id, src])=>{
@@ -883,6 +889,7 @@ function rebuildSourcesRegistry(){
   if(!sources[state.activeSourceId]) state.activeSourceId = 'firstaid';
   activeSourceId = state.activeSourceId;
   MODULES = sources[activeSourceId].modules;
+  reconcileSelectedModules();
 }
 rebuildSourcesRegistry();
 
@@ -1016,13 +1023,22 @@ async function generateSource(){
     const parsed = JSON.parse(jsonMatch[0]);
     if(!Array.isArray(parsed) || !parsed.length) throw new Error(uiLang==='ru' ? 'Пустая структура' : 'Empty structure');
 
+    const ORGAN_KEYWORDS = ['cardio','heart','vascular','pulmonary','respirat','lung','renal','kidney','gastro','gi ','hepat','liver','biliary','pancrea','endocrine','thyroid','adrenal','hemat','oncolog','blood','musculoskeletal','msk','bone','joint','skin','derm','connective','neuro','brain','nervous','special senses','eye','ear','psychiat','mental','reproduct','genital','breast','prostate','uterus','ovar','testic','urinary','immune system','system'];
+    function guessCat(providedCat, moduleName){
+      if(providedCat === 'organ') return 'organ';
+      const lower = moduleName.toLowerCase();
+      return ORGAN_KEYWORDS.some(kw => lower.includes(kw)) ? 'organ' : 'general';
+    }
     const sourceId = slugify(name);
-    const modules = parsed.map((m, i)=>({
-      id: sourceId+'_m'+i,
-      cat: m.cat === 'organ' ? 'organ' : 'general',
-      name: (m.name||'Module '+(i+1)).toString(),
-      subs: Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : []
-    }));
+    const modules = parsed.map((m, i)=>{
+      const moduleName = (m.name||'Module '+(i+1)).toString();
+      return {
+        id: sourceId+'_m'+i,
+        cat: guessCat(m.cat, moduleName),
+        name: moduleName,
+        subs: Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : []
+      };
+    });
     if(!state.customSources) state.customSources = {};
     state.customSources[sourceId] = {name, modules};
     writeKey('customSources/'+sourceId, {name, modules});
@@ -1695,7 +1711,7 @@ function renderOverviewStats(){
     const daysLeft = Math.ceil((target-now)/86400000);
     document.getElementById('days-left').textContent = daysLeft;
     const weeksLeft = Math.max(daysLeft/7, 1);
-    document.getElementById('stat-pace').textContent = remaining>0 ? Math.ceil(remaining/weeksLeft) : '✓';
+    document.getElementById('stat-pace').textContent = totalSubs===0 ? '—' : (remaining>0 ? Math.ceil(remaining/weeksLeft) : '✓');
   } else {
     document.getElementById('days-left').textContent = '—';
     document.getElementById('stat-pace').textContent = '—';
