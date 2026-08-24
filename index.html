@@ -153,6 +153,11 @@
     padding:5px 8px; flex:1; min-width:140px; color:var(--ink);
   }
   .del-x{font-family:var(--mono); color:var(--ink-soft); cursor:pointer; font-size:13px; padding:2px 5px;}
+  .lecture-btn{
+    font-family:var(--mono); font-size:10.5px; padding:5px 9px; border:1px solid var(--teal); background:var(--paper);
+    color:var(--teal); border-radius:12px; cursor:pointer; white-space:nowrap;
+  }
+  .lecture-btn:hover{background:var(--mint);}
   .del-x:hover{color:var(--red);}
 
   .add-row{display:flex; gap:8px; margin-top:14px;}
@@ -585,23 +590,116 @@ const ROOT = 'usmleTutor';
 // Standard First Aid 2025 breakdown. Each module = section-level topic.
 // Subtopics are the well-known internal groupings First Aid uses within each chapter.
 const MODULES = [
-  {id:'gp-biochem', cat:'general', name:'Biochemistry', subs:['Molecular Biology & Genetics','Cell Biology','Metabolism','Nutrition','Laboratory Techniques']},
-  {id:'gp-immuno', cat:'general', name:'Immunology', subs:['Immune Cells & Organs','Innate & Adaptive Immunity','Immunodeficiencies','Hypersensitivity Reactions','Transplant & Autoimmunity']},
-  {id:'gp-micro', cat:'general', name:'Microbiology', subs:['Bacteriology','Virology','Mycology','Parasitology','Antimicrobial Therapy']},
-  {id:'gp-path', cat:'general', name:'Pathology', subs:['Cellular Injury & Adaptation','Inflammation & Repair','Neoplasia','Hemodynamics']},
-  {id:'gp-pharm', cat:'general', name:'Pharmacology', subs:['Pharmacokinetics','Pharmacodynamics','Autonomic Drugs','Adverse Effects & Toxicology','Miscellaneous Pharm']},
-  {id:'gp-pubhealth', cat:'general', name:'Public Health Sciences', subs:['Biostatistics','Epidemiology','Ethics & Law','Patient Safety']},
+  {id:'gp-biochem', cat:'general', name:'Biochemistry', subs:[
+    'Chromatin & DNA Structure','DNA Replication & Repair','Transcription & RNA Processing','Translation & Protein Synthesis',
+    'Genetics: Modes of Inheritance','Genetics: Trinucleotide Repeat & Imprinting Disorders','Population Genetics (Hardy-Weinberg)',
+    'Biosignaling & Receptors','Enzyme Kinetics','Vitamins: Fat-Soluble','Vitamins: Water-Soluble','Glycolysis & Gluconeogenesis',
+    'TCA Cycle & Oxidative Phosphorylation','Glycogen Metabolism Disorders','Fatty Acid & Lipid Metabolism','Lysosomal Storage Diseases',
+    'Amino Acid Metabolism Disorders','Urea Cycle Disorders','Nutrition & Metabolic Adaptation','Purine/Pyrimidine Metabolism'
+  ]},
+  {id:'gp-immuno', cat:'general', name:'Immunology', subs:[
+    'Lymphoid Organ Structure','Innate Immunity: Cells & Mechanisms','Complement Pathways','MHC I & II / Antigen Presentation',
+    'T-Cell Differentiation & Function','B-Cell Differentiation & Antibody Structure','Immunoglobulin Isotypes',
+    'Hypersensitivity Type I-IV','Primary Immunodeficiencies: B-cell','Primary Immunodeficiencies: T-cell & Combined',
+    'Primary Immunodeficiencies: Phagocyte & Complement','Autoimmune Disease Associations','Transplant Rejection Types',
+    'Vaccines: Live vs Inactivated','Immunosuppressants Mechanism'
+  ]},
+  {id:'gp-micro', cat:'general', name:'Microbiology', subs:[
+    'Bacterial Structure & Growth','Gram-Positive Cocci & Rods','Gram-Negative Rods (Enteric & Non-Enteric)',
+    'Spirochetes & Atypical Bacteria','Mycobacteria','Anaerobes','Bacterial Toxins (Exo vs Endo)','DNA Viruses',
+    'RNA Viruses: Positive vs Negative Strand','Herpesviruses','Hepatitis Viruses','HIV Biology & Life Cycle',
+    'Fungal Infections: Cutaneous & Systemic','Opportunistic Fungi','Protozoa & Helminths','Antibacterial Mechanisms & Resistance',
+    'Antiviral & Antifungal Mechanisms','Clinical Bacteriology by System'
+  ]},
+  {id:'gp-path', cat:'general', name:'Pathology', subs:[
+    'Cell Injury: Reversible vs Irreversible','Necrosis Types','Apoptosis Pathways','Cellular Adaptations (Hyper/Hypoplasia, Metaplasia)',
+    'Acute Inflammation','Chronic Inflammation & Granulomas','Wound Healing & Repair','Thrombosis & Embolism','Edema & Shock',
+    'Neoplasia: Carcinogenesis','Neoplasia: Tumor Grading & Staging','Neoplasia: Oncogenes & Tumor Suppressors','Amyloidosis'
+  ]},
+  {id:'gp-pharm', cat:'general', name:'Pharmacology', subs:[
+    'Pharmacokinetics: Absorption & Distribution','Pharmacokinetics: Elimination & Clearance','Pharmacodynamics: Dose-Response',
+    'Receptor Theory & Signal Transduction','Autonomic Pharmacology: Cholinergics','Autonomic Pharmacology: Adrenergics',
+    'Drug Metabolism (Phase I & II)','Adverse Drug Reactions','Drug Interactions','Toxicology & Antidotes',
+    'Pharmacogenomics'
+  ]},
+  {id:'gp-pubhealth', cat:'general', name:'Public Health Sciences', subs:[
+    'Study Designs','Bias & Confounding','Sensitivity, Specificity & Predictive Values','Statistical Distributions & Hypothesis Testing',
+    'Odds Ratio vs Relative Risk','Screening & Prevention Levels','Ethics: Informed Consent & Decision-Making Capacity',
+    'Ethics: Confidentiality & Reportable Conditions','Healthcare Systems & Payment Models','Patient Safety & Quality Improvement'
+  ]},
 
-  {id:'os-cardio', cat:'organ', name:'Cardiovascular', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
-  {id:'os-pulm', cat:'organ', name:'Respiratory', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
-  {id:'os-renal', cat:'organ', name:'Renal', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
-  {id:'os-gi', cat:'organ', name:'Gastrointestinal', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
-  {id:'os-endo', cat:'organ', name:'Endocrine', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
-  {id:'os-heme', cat:'organ', name:'Hematology & Oncology', subs:['Embryology','Physiology','Pathology','Pharmacology','Blood Products & Transfusion']},
-  {id:'os-msk', cat:'organ', name:'MSK, Skin & Connective Tissue', subs:['Anatomy','Physiology','Pathology','Pharmacology','Dermatology']},
-  {id:'os-neuro', cat:'organ', name:'Neurology & Special Senses', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology','Ophthalmology','Otolaryngology']},
-  {id:'os-psych', cat:'organ', name:'Psychiatry', subs:['Psychology','Pathology','Pharmacology','Substance-Related Disorders']},
-  {id:'os-repro', cat:'organ', name:'Reproductive', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
+  {id:'os-cardio', cat:'organ', name:'Cardiovascular', subs:[
+    'Embryology: Heart Tube Formation & Septation','Embryology: Fetal Circulation & Shunts','Anatomy: Coronary Circulation',
+    'Anatomy: Cardiac Chambers & Valves','Physiology: Cardiac Cycle & Pressure-Volume Loops','Physiology: Cardiac Output Determinants',
+    'Physiology: Frank-Starling & Contractility','Physiology: ECG Basics & Conduction','Pathology: Congenital Heart Defects',
+    'Pathology: Ischemic Heart Disease','Pathology: Heart Failure','Pathology: Valvular Disease','Pathology: Cardiomyopathies',
+    'Pathology: Arrhythmias','Pathology: Vasculitides & Aneurysms','Pathology: Hypertension','Pharmacology: Antiarrhythmics',
+    'Pharmacology: Antihypertensives','Pharmacology: Antianginals & Heart Failure Drugs','Pharmacology: Lipid-Lowering Agents'
+  ]},
+  {id:'os-pulm', cat:'organ', name:'Respiratory', subs:[
+    'Embryology: Lung Development Stages','Anatomy: Airway & Lung Structure','Physiology: Lung Volumes & Capacities',
+    'Physiology: Gas Exchange & V/Q Mismatch','Physiology: Oxygen-Hemoglobin Dissociation Curve','Physiology: Acid-Base & Respiratory Compensation',
+    'Pathology: Obstructive Lung Disease','Pathology: Restrictive Lung Disease','Pathology: Pulmonary Vascular Disease',
+    'Pathology: Pneumonia & Lung Infections','Pathology: Lung Neoplasms','Pathology: Pleural Disease',
+    'Pharmacology: Bronchodilators & Asthma/COPD Drugs','Pharmacology: Respiratory Stimulants & Antitussives'
+  ]},
+  {id:'os-renal', cat:'organ', name:'Renal', subs:[
+    'Embryology: Kidney Development & Anomalies','Anatomy: Nephron Structure','Physiology: Glomerular Filtration & Clearance',
+    'Physiology: Tubular Transport by Segment','Physiology: Acid-Base Regulation','Physiology: Potassium & Sodium Homeostasis',
+    'Pathology: Glomerular Disease (Nephritic)','Pathology: Glomerular Disease (Nephrotic)','Pathology: Acute Kidney Injury',
+    'Pathology: Chronic Kidney Disease','Pathology: Renal Tubular Disorders','Pathology: Nephrolithiasis','Pathology: Renal Tumors & Cysts',
+    'Pharmacology: Diuretics'
+  ]},
+  {id:'os-gi', cat:'organ', name:'Gastrointestinal', subs:[
+    'Embryology: Foregut/Midgut/Hindgut Derivatives','Embryology: GI Malrotation & Atresias','Anatomy: GI Tract Layers & Blood Supply',
+    'Physiology: GI Hormones','Physiology: Digestion & Absorption','Physiology: Motility',
+    'Pathology: Esophageal Disease','Pathology: Peptic Ulcer & Gastritis','Pathology: Malabsorption Syndromes',
+    'Pathology: Inflammatory Bowel Disease','Pathology: Liver Disease','Pathology: Biliary & Pancreatic Disease',
+    'Pathology: GI Neoplasms','Pharmacology: Acid-Suppressing & GI Motility Drugs'
+  ]},
+  {id:'os-endo', cat:'organ', name:'Endocrine', subs:[
+    'Embryology: Pituitary & Thyroid Development','Anatomy: Endocrine Gland Overview','Physiology: Hypothalamic-Pituitary Axis',
+    'Physiology: Thyroid Hormone Synthesis & Regulation','Physiology: Adrenal Steroid Synthesis','Physiology: Glucose Homeostasis & Insulin',
+    'Physiology: Calcium Homeostasis','Pathology: Pituitary Disorders','Pathology: Thyroid Disorders','Pathology: Adrenal Disorders',
+    'Pathology: Diabetes Mellitus & Complications','Pathology: Parathyroid & Calcium Disorders','Pathology: MEN Syndromes',
+    'Pharmacology: Diabetes Drugs','Pharmacology: Thyroid & Steroid Drugs'
+  ]},
+  {id:'os-heme', cat:'organ', name:'Hematology & Oncology', subs:[
+    'Embryology: Hematopoiesis Sites','Physiology: RBC Structure & Hemoglobin','Physiology: Coagulation Cascade',
+    'Physiology: Platelet Function','Pathology: Microcytic Anemias','Pathology: Macrocytic & Normocytic Anemias',
+    'Pathology: Hemolytic Anemias','Pathology: Coagulation Disorders','Pathology: Platelet Disorders','Pathology: Leukemias',
+    'Pathology: Lymphomas','Pathology: Plasma Cell Dyscrasias','Pathology: Myeloproliferative Disorders',
+    'Pharmacology: Anticoagulants & Antiplatelets','Pharmacology: Chemotherapy Drug Classes','Blood Products & Transfusion Reactions'
+  ]},
+  {id:'os-msk', cat:'organ', name:'MSK, Skin & Connective Tissue', subs:[
+    'Anatomy: Upper Limb Nerves & Injuries','Anatomy: Lower Limb Nerves & Injuries','Anatomy: Back & Spinal Nerves',
+    'Physiology: Muscle Contraction','Physiology: Bone Remodeling','Pathology: Bone Tumors & Metabolic Bone Disease',
+    'Pathology: Joint Disease (Osteoarthritis vs Inflammatory)','Pathology: Crystal Arthropathies','Pathology: Connective Tissue Disease',
+    'Pathology: Seronegative Spondyloarthropathies','Pathology: Muscular Dystrophies & Myopathies',
+    'Dermatology: Rashes & Lesion Morphology','Dermatology: Skin Infections','Dermatology: Skin Cancers',
+    'Pharmacology: NSAIDs & DMARDs','Pharmacology: Gout Drugs'
+  ]},
+  {id:'os-neuro', cat:'organ', name:'Neurology & Special Senses', subs:[
+    'Embryology: Neural Tube Development & Defects','Anatomy: Cerebral Vasculature & Stroke Syndromes','Anatomy: Cranial Nerves',
+    'Anatomy: Spinal Cord Tracts','Physiology: Neurotransmitters','Physiology: Reflexes & Motor Pathways',
+    'Pathology: Stroke & Vascular Disease','Pathology: Seizures & Epilepsy','Pathology: Demyelinating Disease',
+    'Pathology: Neurodegenerative Disease','Pathology: CNS Tumors','Pathology: Neuromuscular Junction Disease',
+    'Pharmacology: Antiepileptics','Pharmacology: Parkinson & Alzheimer Drugs','Pharmacology: Anesthetics & Analgesics',
+    'Ophthalmology: Common Eye Disorders','Otolaryngology: Hearing & Vestibular Disorders'
+  ]},
+  {id:'os-psych', cat:'organ', name:'Psychiatry', subs:[
+    'Psychology: Defense Mechanisms','Psychology: Development & Attachment','Pathology: Mood Disorders',
+    'Pathology: Anxiety & OCD-Spectrum Disorders','Pathology: Psychotic Disorders','Pathology: Personality Disorders',
+    'Pathology: Eating Disorders','Pathology: Somatic Symptom & Dissociative Disorders','Substance-Related Disorders: Intoxication & Withdrawal',
+    'Pharmacology: Antidepressants','Pharmacology: Antipsychotics','Pharmacology: Mood Stabilizers & Anxiolytics'
+  ]},
+  {id:'os-repro', cat:'organ', name:'Reproductive', subs:[
+    'Embryology: Gonadal & Genital Development','Embryology: Sexual Differentiation Disorders','Anatomy: Female Reproductive Anatomy',
+    'Anatomy: Male Reproductive Anatomy','Physiology: Menstrual Cycle & Hormones','Physiology: Pregnancy Physiology',
+    'Physiology: Spermatogenesis & Male Hormones','Pathology: Menstrual & Ovarian Disorders','Pathology: Uterine & Cervical Pathology',
+    'Pathology: Breast Pathology','Pathology: Pregnancy Complications','Pathology: STIs',
+    'Pathology: Testicular & Prostate Pathology','Pharmacology: Hormonal Contraception & Reproductive Drugs'
+  ]},
 
   {id:'final-rapid', cat:'final', name:'Rapid Review', subs:['Cardiovascular','Respiratory','Renal','GI','Endocrine','Heme/Onc','MSK/Derm','Neuro/Psych','Reproductive','High-Yield Misc']},
 ];
@@ -1098,14 +1196,10 @@ async function callClaude(modId, chatStore, saveFn, systemPrompt){
   renderModuleDetail();
 }
 
-async function sendTutorMessage(modId){
+async function sendTutorText(modId, text){
   const mod = MODULES.find(m=>m.id===modId);
-  const input = document.getElementById('tutor-input-'+modId);
-  const text = input.value.trim();
-  if(!text) return;
   if(!tutorChats[modId]) tutorChats[modId] = [];
   tutorChats[modId].push({role:'user', content:text});
-  input.value = '';
   saveTutorChats();
 
   const subjectList = mod.subs.join(', ');
@@ -1113,6 +1207,22 @@ async function sendTutorMessage(modId){
 
 ФОРМАТИРОВАНИЕ (строго): пиши обычным разговорным текстом, как будто объясняешь вслух коллеге. НЕ используй markdown-разметку — никаких ### заголовков, **жирного текста** со звёздочками, LaTeX-формул ($$...$$), горизонтальных линий (---), нумерованных списков с точками через звёздочку. Если нужно перечислить несколько пунктов — пиши их как обычные предложения через тире или просто абзацами. Формулы записывай словами или простыми обозначениями (например "SV / compliance", а не LaTeX-дробь).`;
   await callClaude(modId, tutorChats, saveTutorChats, systemPrompt);
+}
+async function sendTutorMessage(modId){
+  const input = document.getElementById('tutor-input-'+modId);
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  await sendTutorText(modId, text);
+}
+async function requestLecture(modId, label){
+  panelTab = 'tutor';
+  tutorOpen = true;
+  renderModuleDetail();
+  const panel = document.getElementById('tutor-panel');
+  if(panel) panel.classList.add('open');
+  const text = `Дай мини-лекцию по теме «${label}» в рамках этого блока — структурированно объясни ключевые механизмы, факты и клинические связи на уровне First Aid, своими словами, без дословного цитирования учебников. В конце — 1-2 вопроса на активное вспоминание.`;
+  await sendTutorText(modId, text);
 }
 
 function quizSystemPrompt(mod){
@@ -1303,6 +1413,7 @@ function renderModuleDetail(){
       `<button class="conf-btn ${st.confidence===n?'active-'+n:''}" onclick="setItemState('${mod.id}','${s.subId}',{confidence:${n}})">${n}</button>`
     ).join('');
     const delBtn = s.isCustom ? `<span class="del-x" onclick="deleteCustom('${mod.id}','${s.subId}')">✕</span>` : '';
+    const labelEsc = s.label.replace(/'/g,"\\'");
     return `<div class="item-row">
       <input type="checkbox" id="chk-${mod.id}-${s.subId}" ${st.checked?'checked':''} onchange="setItemState('${mod.id}','${s.subId}',{checked:this.checked})">
       <div class="item-body">
@@ -1310,6 +1421,7 @@ function renderModuleDetail(){
         <div class="item-controls">
           <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);">уверенность:</span>
           <div class="conf-btns">${confBtns}</div>
+          <button class="lecture-btn" onclick="requestLecture('${mod.id}','${labelEsc}')">📖 Лекция</button>
           <input class="note-input" placeholder="заметка / из какого UWorld блока" value="${(st.note||'').replace(/"/g,'&quot;')}" onblur="setItemState('${mod.id}','${s.subId}',{note:this.value})">
           ${delBtn}
         </div>
