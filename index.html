@@ -88,6 +88,25 @@
   }
   .section-label::after{content:''; flex:1; height:1px; background:var(--line);}
 
+  .block-selector-row{display:flex; align-items:center; gap:14px; margin:2px 0 18px; flex-wrap:wrap;}
+  .lede-inline{color:var(--ink-soft); font-size:13.5px;}
+  .block-selector{position:relative;}
+  .block-selector-btn{
+    font-family:var(--mono); font-size:12px; background:var(--paper); border:1px solid var(--line);
+    border-radius:2px; padding:8px 12px; cursor:pointer; color:var(--teal);
+  }
+  .block-selector-panel{
+    display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:25;
+    background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:0 6px 18px rgba(0,0,0,.12); padding:10px 6px; min-width:260px; max-height:340px; overflow-y:auto;
+  }
+  .block-selector-panel.open{display:block;}
+  .block-selector-item{display:flex; align-items:center; gap:9px; padding:7px 10px; font-size:13px; cursor:pointer; border-radius:2px;}
+  .block-selector-item:hover{background:var(--bg);}
+  .block-selector-item input{width:16px; height:16px; accent-color:var(--teal); cursor:pointer;}
+  .block-selector-item.all-item{font-weight:600; border-bottom:1px solid var(--line); margin-bottom:4px; padding-bottom:9px;}
+  .block-selector-group{font-family:var(--mono); font-size:10px; text-transform:uppercase; color:var(--ink-soft); letter-spacing:.05em; padding:8px 10px 3px;}
+
   .module-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px;}
   .module-card{
     background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
@@ -277,7 +296,19 @@
   <!-- DASHBOARD -->
   <div class="view active" id="view-dashboard">
     <h1>Обзор прогресса</h1>
-    <p class="lede">17 блоков First Aid 2025 · плавающий график · синк между устройствами</p>
+    <div class="block-selector-row">
+      <span class="lede-inline">Плавающий график</span>
+      <div class="block-selector">
+        <button class="block-selector-btn" onclick="toggleBlockSelector()">Блоки: <span id="block-count-label">17/17</span> ▾</button>
+        <div class="block-selector-panel" id="block-selector-panel">
+          <label class="block-selector-item all-item">
+            <input type="checkbox" id="block-select-all" onchange="toggleAllBlocks(this.checked)">
+            <span>Все</span>
+          </label>
+          <div id="block-selector-list"></div>
+        </div>
+      </div>
+    </div>
 
     <div class="grid-overview">
       <div class="stat"><div class="num" id="stat-overall">0%</div><div class="label">Общий прогресс</div></div>
@@ -380,7 +411,8 @@ let state = {
   progress: {},   // moduleId -> subIndex/customId -> {checked, confidence, note}
   custom: {},     // moduleId -> [{id, label}]
   log: {},        // ts -> {text}
-  targetDate: ''
+  targetDate: '',
+  selectedModules: MODULES.map(m=>m.id) // default: all blocks active
 };
 
 function loadLocal(){
@@ -411,6 +443,7 @@ function attachDbListener(){
     if(remote.custom) deepMerge(state.custom, remote.custom);
     if(remote.log) deepMerge(state.log, remote.log);
     if(remote.targetDate !== undefined) state.targetDate = remote.targetDate;
+    if(remote.selectedModules !== undefined) state.selectedModules = remote.selectedModules;
     syncReady = true;
     setSyncDot('on');
     saveLocal();
@@ -737,6 +770,55 @@ function moduleStats(mod){
 }
 
 /* ---------- RENDER: OVERVIEW ---------- */
+function activeModules(){
+  const sel = state.selectedModules && state.selectedModules.length ? state.selectedModules : MODULES.map(m=>m.id);
+  return MODULES.filter(m => sel.includes(m.id));
+}
+function renderBlockSelectorPanel(){
+  const listEl = document.getElementById('block-selector-list');
+  if(!listEl) return;
+  const sel = state.selectedModules || MODULES.map(m=>m.id);
+  let html = '';
+  let lastCat = null;
+  const catLabels = {general:'General Principles', organ:'Organ Systems', final:'Финал'};
+  MODULES.forEach(m=>{
+    if(m.cat !== lastCat){
+      html += `<div class="block-selector-group">${catLabels[m.cat]}</div>`;
+      lastCat = m.cat;
+    }
+    html += `<label class="block-selector-item">
+      <input type="checkbox" ${sel.includes(m.id)?'checked':''} onchange="toggleOneBlock('${m.id}', this.checked)">
+      <span>${m.name}</span>
+    </label>`;
+  });
+  listEl.innerHTML = html;
+  document.getElementById('block-select-all').checked = sel.length === MODULES.length;
+  document.getElementById('block-count-label').textContent = sel.length + '/' + MODULES.length;
+}
+function toggleBlockSelector(){
+  document.getElementById('block-selector-panel').classList.toggle('open');
+}
+document.addEventListener('click', e=>{
+  const panel = document.getElementById('block-selector-panel');
+  const btn = e.target.closest('.block-selector');
+  if(panel && panel.classList.contains('open') && !btn){
+    panel.classList.remove('open');
+  }
+});
+function toggleAllBlocks(checked){
+  state.selectedModules = checked ? MODULES.map(m=>m.id) : [];
+  writeKey('selectedModules', state.selectedModules);
+  renderAll();
+}
+function toggleOneBlock(id, checked){
+  let sel = state.selectedModules ? state.selectedModules.slice() : MODULES.map(m=>m.id);
+  if(checked){ if(!sel.includes(id)) sel.push(id); }
+  else { sel = sel.filter(x=>x!==id); }
+  state.selectedModules = sel;
+  writeKey('selectedModules', sel);
+  renderAll();
+}
+
 function renderTicks(mod){
   const subs = allSubsFor(mod);
   return subs.map(s=>{
@@ -755,14 +837,15 @@ function moduleCard(mod){
   </div>`;
 }
 function renderGrids(prefix){
-  document.getElementById(prefix+'-general').innerHTML = MODULES.filter(m=>m.cat==='general').map(moduleCard).join('');
-  document.getElementById(prefix+'-organ').innerHTML = MODULES.filter(m=>m.cat==='organ').map(moduleCard).join('');
-  document.getElementById(prefix+'-final').innerHTML = MODULES.filter(m=>m.cat==='final').map(moduleCard).join('');
+  const active = activeModules();
+  document.getElementById(prefix+'-general').innerHTML = active.filter(m=>m.cat==='general').map(moduleCard).join('') || '<div class="empty">Нет выбранных блоков в этой категории.</div>';
+  document.getElementById(prefix+'-organ').innerHTML = active.filter(m=>m.cat==='organ').map(moduleCard).join('') || '<div class="empty">Нет выбранных блоков в этой категории.</div>';
+  document.getElementById(prefix+'-final').innerHTML = active.filter(m=>m.cat==='final').map(moduleCard).join('') || '<div class="empty">Нет выбранных блоков в этой категории.</div>';
 }
 
 function renderOverviewStats(){
   let totalSubs=0, totalDone=0, totalWeak=0;
-  MODULES.forEach(m=>{
+  activeModules().forEach(m=>{
     const s = moduleStats(m);
     totalSubs += s.total; totalDone += s.done; totalWeak += s.weak;
   });
@@ -861,7 +944,7 @@ function deleteCustom(modId, subId){
 /* ---------- RENDER: WEAK SPOTS ---------- */
 function renderWeak(){
   const items = [];
-  MODULES.forEach(mod=>{
+  activeModules().forEach(mod=>{
     allSubsFor(mod).forEach(s=>{
       const st = getItemState(mod.id, s.subId);
       if(st.confidence>0 && st.confidence<=2){
@@ -934,6 +1017,7 @@ document.querySelectorAll('nav button').forEach(btn=>{
 /* ---------- MASTER RENDER ---------- */
 function renderAll(){
   if(state.targetDate) targetInput.value = state.targetDate;
+  renderBlockSelectorPanel();
   renderGrids('grid');
   renderGrids('mgrid');
   renderOverviewStats();
