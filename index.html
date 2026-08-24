@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STEP TRACKER — USMLE Step 1</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --bg: #eef3f1;
+    --paper: #ffffff;
+    --ink: #17322f;
+    --ink-soft: #4c6864;
+    --line: #d6e2de;
+    --teal: #1f4d47;
+    --teal-deep: #123330;
+    --mint: #cfe3dd;
+    --amber: #b8863b;
+    --amber-bg: #faf1e2;
+    --red: #a8433a;
+    --red-bg: #f9e9e6;
+    --green: #3d7a5c;
+    --green-bg: #e6f1ea;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, Menlo, monospace;
+    --sans: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); -webkit-font-smoothing:antialiased;
+    padding-bottom:60px;
+  }
+  header{
+    background:var(--paper); border-bottom:1px solid var(--line);
+    padding:18px 20px; display:flex; align-items:center; justify-content:space-between;
+    gap:16px; flex-wrap:wrap; position:sticky; top:0; z-index:20;
+  }
+  .brand{display:flex; align-items:center; gap:14px;}
+  .brand-mark{
+    font-family:var(--mono); font-weight:700; font-size:13px; letter-spacing:0.06em;
+    color:var(--teal); line-height:1.35; border-right:1px solid var(--line); padding-right:14px;
+  }
+  .brand-sub{font-family:var(--mono); font-size:12px; color:var(--ink-soft); letter-spacing:.02em;}
+  .countdown{
+    font-family:var(--mono); font-size:12px; color:var(--ink-soft); text-align:right;
+    display:flex; align-items:center; gap:10px;
+  }
+  .countdown b{color:var(--teal); font-size:15px;}
+  #sync-dot{width:7px; height:7px; border-radius:50%; background:#c9b98a; display:inline-block; margin-right:5px;}
+  #sync-dot.on{background:var(--green);}
+  #sync-dot.off{background:var(--red);}
+
+  nav{
+    display:flex; gap:2px; padding:0 20px; background:var(--paper); border-bottom:1px solid var(--line);
+    overflow-x:auto; position:sticky; top:73px; z-index:19;
+  }
+  nav button{
+    font-family:var(--mono); font-size:12.5px; letter-spacing:.03em; text-transform:uppercase;
+    background:none; border:none; padding:13px 14px; color:var(--ink-soft); cursor:pointer;
+    border-bottom:2px solid transparent; white-space:nowrap;
+  }
+  nav button.active{color:var(--teal); border-bottom-color:var(--teal); font-weight:600;}
+
+  main{max-width:920px; margin:0 auto; padding:22px 16px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  h1{font-family:var(--mono); font-size:20px; margin:2px 0 4px; color:var(--teal-deep);}
+  .lede{color:var(--ink-soft); font-size:13.5px; margin:0 0 18px;}
+
+  .grid-overview{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:22px;}
+  .stat{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); padding:14px;}
+  .stat .num{font-family:var(--mono); font-size:26px; color:var(--teal); font-weight:700;}
+  .stat .label{font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
+
+  .section-label{
+    font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); text-transform:uppercase;
+    letter-spacing:.08em; margin:26px 0 10px; display:flex; align-items:center; gap:8px;
+  }
+  .section-label::after{content:''; flex:1; height:1px; background:var(--line);}
+
+  .module-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px;}
+  .module-card{
+    background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+    padding:14px 16px; cursor:pointer; transition:border-color .12s;
+  }
+  .module-card:hover{border-color:var(--teal);}
+  .module-card .mname{font-weight:600; font-size:14.5px; margin-bottom:8px;}
+  .ticks{display:flex; gap:3px; flex-wrap:wrap; margin-bottom:8px;}
+  .tick{width:11px; height:16px; border:1px solid var(--line); border-radius:1px; background:var(--bg);}
+  .tick.done{background:var(--teal); border-color:var(--teal);}
+  .tick.weak{background:var(--red); border-color:var(--red);}
+  .mmeta{display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  .module-detail{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px;}
+  .back-link{font-family:var(--mono); font-size:12px; color:var(--teal); cursor:pointer; margin-bottom:12px; display:inline-block;}
+  .item-row{
+    display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);
+  }
+  .item-row:last-child{border-bottom:none;}
+  .item-row input[type=checkbox]{width:17px; height:17px; margin-top:2px; accent-color:var(--teal); cursor:pointer;}
+  .item-body{flex:1; min-width:0;}
+  .item-name{font-size:14px; font-weight:500;}
+  .item-name.done{color:var(--ink-soft); text-decoration:line-through; text-decoration-color:var(--line);}
+  .item-controls{display:flex; gap:8px; margin-top:6px; align-items:center; flex-wrap:wrap;}
+  .conf-btns{display:flex; gap:3px;}
+  .conf-btn{
+    width:22px; height:22px; border:1px solid var(--line); background:var(--paper); border-radius:2px;
+    font-family:var(--mono); font-size:11px; cursor:pointer; color:var(--ink-soft); padding:0;
+  }
+  .conf-btn.active-1{background:var(--red-bg); border-color:var(--red); color:var(--red);}
+  .conf-btn.active-2{background:var(--red-bg); border-color:var(--red); color:var(--red);}
+  .conf-btn.active-3{background:var(--amber-bg); border-color:var(--amber); color:var(--amber);}
+  .conf-btn.active-4{background:var(--green-bg); border-color:var(--green); color:var(--green);}
+  .conf-btn.active-5{background:var(--green-bg); border-color:var(--green); color:var(--green);}
+  .note-input{
+    font-family:var(--sans); font-size:12.5px; border:1px solid var(--line); border-radius:2px;
+    padding:5px 8px; flex:1; min-width:140px; color:var(--ink);
+  }
+  .del-x{font-family:var(--mono); color:var(--ink-soft); cursor:pointer; font-size:13px; padding:2px 5px;}
+  .del-x:hover{color:var(--red);}
+
+  .add-row{display:flex; gap:8px; margin-top:14px;}
+  .add-row input{
+    flex:1; font-family:var(--sans); font-size:13px; padding:9px 10px; border:1px solid var(--line); border-radius:2px;
+  }
+  .btn{
+    font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.03em;
+    background:var(--teal); color:#fff; border:none; padding:9px 16px; border-radius:2px; cursor:pointer;
+  }
+  .btn:hover{background:var(--teal-deep);}
+  .btn.ghost{background:none; color:var(--teal); border:1px solid var(--teal);}
+
+  .weak-item{
+    background:var(--paper); border:1px solid var(--line); border-left:3px solid var(--red);
+    border-radius:var(--radius); padding:11px 14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:10px;
+  }
+  .weak-item .wtitle{font-size:13.5px; font-weight:500;}
+  .weak-item .wmod{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+  .weak-item .jump{font-family:var(--mono); font-size:11px; color:var(--teal); cursor:pointer; white-space:nowrap;}
+  .empty{color:var(--ink-soft); font-size:13px; font-style:italic; padding:20px 0;}
+
+  .log-form{display:flex; gap:8px; margin-bottom:16px;}
+  .log-form textarea{
+    flex:1; font-family:var(--sans); font-size:13px; padding:9px 10px; border:1px solid var(--line);
+    border-radius:2px; resize:vertical; min-height:38px;
+  }
+  .log-entry{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); padding:11px 14px; margin-bottom:8px;}
+  .log-entry .ts{font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); margin-bottom:4px;}
+
+  .setup-box{background:var(--amber-bg); border:1px solid var(--amber); border-radius:var(--radius); padding:14px 16px; margin-bottom:18px; font-size:13px;}
+
+  input[type=date]{font-family:var(--mono); font-size:12px; border:1px solid var(--line); border-radius:2px; padding:5px 8px;}
+
+  #login-screen{
+    position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center;
+    z-index:100; padding:20px;
+  }
+  #login-screen.hidden{display:none;}
+  .login-box{
+    background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+    padding:28px 26px; width:100%; max-width:320px;
+  }
+  .login-box .brand-mark{border-right:none; padding-right:0; margin-bottom:4px;}
+  .login-box .lede{margin-bottom:18px;}
+  .login-box input{
+    width:100%; font-family:var(--sans); font-size:14px; padding:10px 12px; margin-bottom:10px;
+    border:1px solid var(--line); border-radius:2px;
+  }
+  .login-box .btn{width:100%; padding:11px;}
+  #login-error{color:var(--red); font-size:12.5px; margin-top:8px; min-height:16px;}
+  body.locked main, body.locked nav{filter:blur(6px); pointer-events:none; user-select:none;}
+
+  @media (max-width:600px){
+    header{padding:14px;} main{padding:16px 10px;}
+    .module-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body class="locked">
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="brand-mark">STEP<br>TRACKER</div>
+    <p class="lede">Вход только для тебя</p>
+    <input type="email" id="login-email" placeholder="email" autocomplete="username">
+    <input type="password" id="login-password" placeholder="пароль" autocomplete="current-password">
+    <button class="btn" id="login-submit">Войти</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">STEP<br>TRACKER</div>
+    <div class="brand-sub">USMLE Step 1 — First Aid 2025</div>
+  </div>
+  <div class="countdown">
+    <span><span id="sync-dot"></span><span id="sync-label">connecting…</span></span>
+    <span>Target: <input type="date" id="target-date"></span>
+    <span>Days left: <b id="days-left">—</b></span>
+  </div>
+</header>
+
+<nav>
+  <button data-view="dashboard" class="active">Обзор</button>
+  <button data-view="modules">Темы</button>
+  <button data-view="weak">Слабые места</button>
+  <button data-view="log">Дневник</button>
+</nav>
+
+<main>
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dashboard">
+    <h1>Обзор прогресса</h1>
+    <p class="lede">17 блоков First Aid 2025 · плавающий график · синк между устройствами</p>
+
+    <div class="grid-overview">
+      <div class="stat"><div class="num" id="stat-overall">0%</div><div class="label">Общий прогресс</div></div>
+      <div class="stat"><div class="num" id="stat-done">0</div><div class="label">Тем закрыто</div></div>
+      <div class="stat"><div class="num" id="stat-weak">0</div><div class="label">Слабых мест</div></div>
+      <div class="stat"><div class="num" id="stat-pace">—</div><div class="label">Тем / неделю нужно</div></div>
+    </div>
+
+    <div class="section-label">General Principles</div>
+    <div class="module-grid" id="grid-general"></div>
+
+    <div class="section-label">Organ Systems</div>
+    <div class="module-grid" id="grid-organ"></div>
+
+    <div class="section-label">Финал</div>
+    <div class="module-grid" id="grid-final"></div>
+  </div>
+
+  <!-- MODULES LIST / DETAIL -->
+  <div class="view" id="view-modules">
+    <div id="modules-list">
+      <h1>Все темы</h1>
+      <p class="lede">Кликни по блоку, чтобы отметить прогресс и уверенность по каждой подтеме</p>
+      <div class="section-label">General Principles</div>
+      <div class="module-grid" id="mgrid-general"></div>
+      <div class="section-label">Organ Systems</div>
+      <div class="module-grid" id="mgrid-organ"></div>
+      <div class="section-label">Финал</div>
+      <div class="module-grid" id="mgrid-final"></div>
+    </div>
+    <div id="module-detail" style="display:none;"></div>
+  </div>
+
+  <!-- WEAK SPOTS -->
+  <div class="view" id="view-weak">
+    <h1>Слабые места</h1>
+    <p class="lede">Автоматически: всё с уверенностью 1–2. Плюс всё, что ты добавил вручную из UWorld/NBME.</p>
+    <div id="weak-list"></div>
+  </div>
+
+  <!-- LOG -->
+  <div class="view" id="view-log">
+    <h1>Дневник сессий</h1>
+    <p class="lede">Плавающий график — без фиксированных часов. Просто фиксируй, что прошёл сегодня.</p>
+    <div class="log-form">
+      <textarea id="log-text" placeholder="Что прошёл сегодня? (например: Cardio patho + 40 UWorld вопросов, 62%)"></textarea>
+      <button class="btn" id="log-submit">Записать</button>
+    </div>
+    <div id="log-list"></div>
+  </div>
+
+</main>
+
+<script>
+/* ---------- FIREBASE ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyAIik6ZacG6XqkRUnqdK1_P8Ku3xPPCMAw",
+  authDomain: "usmle-tutor0.firebaseapp.com",
+  databaseURL: "https://usmle-tutor0-default-rtdb.firebaseio.com",
+  projectId: "usmle-tutor0",
+  storageBucket: "usmle-tutor0.firebasestorage.app",
+  messagingSenderId: "874207209128",
+  appId: "1:874207209128:web:2112ee3be88049cb5ac49d"
+};
+let db = null;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+}catch(e){ console.error('Firebase init failed', e); }
+
+const ROOT = 'usmleTutor';
+
+/* ---------- DATA MODEL ---------- */
+// Standard First Aid 2025 breakdown. Each module = section-level topic.
+// Subtopics are the well-known internal groupings First Aid uses within each chapter.
+const MODULES = [
+  {id:'gp-biochem', cat:'general', name:'Biochemistry', subs:['Molecular Biology & Genetics','Cell Biology','Metabolism','Nutrition','Laboratory Techniques']},
+  {id:'gp-immuno', cat:'general', name:'Immunology', subs:['Immune Cells & Organs','Innate & Adaptive Immunity','Immunodeficiencies','Hypersensitivity Reactions','Transplant & Autoimmunity']},
+  {id:'gp-micro', cat:'general', name:'Microbiology', subs:['Bacteriology','Virology','Mycology','Parasitology','Antimicrobial Therapy']},
+  {id:'gp-path', cat:'general', name:'Pathology', subs:['Cellular Injury & Adaptation','Inflammation & Repair','Neoplasia','Hemodynamics']},
+  {id:'gp-pharm', cat:'general', name:'Pharmacology', subs:['Pharmacokinetics','Pharmacodynamics','Autonomic Drugs','Adverse Effects & Toxicology','Miscellaneous Pharm']},
+  {id:'gp-pubhealth', cat:'general', name:'Public Health Sciences', subs:['Biostatistics','Epidemiology','Ethics & Law','Patient Safety']},
+
+  {id:'os-cardio', cat:'organ', name:'Cardiovascular', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
+  {id:'os-pulm', cat:'organ', name:'Respiratory', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
+  {id:'os-renal', cat:'organ', name:'Renal', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
+  {id:'os-gi', cat:'organ', name:'Gastrointestinal', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
+  {id:'os-endo', cat:'organ', name:'Endocrine', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
+  {id:'os-heme', cat:'organ', name:'Hematology & Oncology', subs:['Embryology','Physiology','Pathology','Pharmacology','Blood Products & Transfusion']},
+  {id:'os-msk', cat:'organ', name:'MSK, Skin & Connective Tissue', subs:['Anatomy','Physiology','Pathology','Pharmacology','Dermatology']},
+  {id:'os-neuro', cat:'organ', name:'Neurology & Special Senses', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology','Ophthalmology','Otolaryngology']},
+  {id:'os-psych', cat:'organ', name:'Psychiatry', subs:['Psychology','Pathology','Pharmacology','Substance-Related Disorders']},
+  {id:'os-repro', cat:'organ', name:'Reproductive', subs:['Embryology','Anatomy','Physiology','Pathology','Pharmacology']},
+
+  {id:'final-rapid', cat:'final', name:'Rapid Review', subs:['Cardiovascular','Respiratory','Renal','GI','Endocrine','Heme/Onc','MSK/Derm','Neuro/Psych','Reproductive','High-Yield Misc']},
+];
+
+/* ---------- STATE ---------- */
+let state = {
+  progress: {},   // moduleId -> subIndex/customId -> {checked, confidence, note}
+  custom: {},     // moduleId -> [{id, label}]
+  log: {},        // ts -> {text}
+  targetDate: ''
+};
+
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem('usmleTutorState');
+    if(raw) state = Object.assign(state, JSON.parse(raw));
+  }catch(e){}
+}
+function saveLocal(){
+  try{ localStorage.setItem('usmleTutorState', JSON.stringify(state)); }catch(e){}
+}
+loadLocal();
+
+/* ---------- FIREBASE SYNC (per-key merge, never full replace) ---------- */
+let syncReady = false;
+function setSyncDot(status){
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  dot.className = status;
+  label.textContent = status === 'on' ? 'синк активен' : status === 'off' ? 'офлайн (сохранено локально)' : 'подключение…';
+}
+
+let dbListenerAttached = false;
+function attachDbListener(){
+  if(!db || dbListenerAttached) return;
+  dbListenerAttached = true;
+  db.ref(ROOT).on('value', snap => {
+    const remote = snap.val() || {};
+    // merge: only apply keys actually present, never treat "absence" as "clear"
+    if(remote.progress) deepMerge(state.progress, remote.progress);
+    if(remote.custom) deepMerge(state.custom, remote.custom);
+    if(remote.log) deepMerge(state.log, remote.log);
+    if(remote.targetDate !== undefined) state.targetDate = remote.targetDate;
+    syncReady = true;
+    setSyncDot('on');
+    saveLocal();
+    renderAll();
+  }, err => {
+    console.error(err);
+    setSyncDot('off');
+    renderAll();
+  });
+}
+
+/* ---------- AUTH ---------- */
+const auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : null;
+if(auth){
+  auth.onAuthStateChanged(user => {
+    if(user){
+      document.getElementById('login-screen').classList.add('hidden');
+      document.body.classList.remove('locked');
+      attachDbListener();
+    } else {
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.body.classList.add('locked');
+      setSyncDot('off');
+    }
+  });
+} else {
+  // no auth available — stay locked, nothing works without it
+  setSyncDot('off');
+}
+
+document.getElementById('login-submit').addEventListener('click', doLogin);
+document.getElementById('login-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if(!auth){ errEl.textContent = 'Auth недоступен'; return; }
+  auth.signInWithEmailAndPassword(email, pass).catch(e=>{
+    errEl.textContent = 'Неверный email или пароль';
+  });
+}
+
+function deepMerge(target, source){
+  for(const k in source){
+    if(source[k] && typeof source[k] === 'object' && !Array.isArray(source[k])){
+      if(!target[k] || typeof target[k] !== 'object') target[k] = {};
+      deepMerge(target[k], source[k]);
+    } else {
+      target[k] = source[k];
+    }
+  }
+}
+
+function writeKey(path, value){
+  // string-coerced path segments happen naturally via template strings below
+  saveLocal();
+  if(db){
+    db.ref(`${ROOT}/${path}`).set(value).catch(e=>{
+      console.error('write failed', e);
+      setSyncDot('off');
+    });
+  }
+}
+
+/* ---------- HELPERS ---------- */
+function getItemState(modId, subId){
+  return (state.progress[modId] && state.progress[modId][subId]) || {checked:false, confidence:0, note:''};
+}
+function setItemState(modId, subId, patch){
+  if(!state.progress[modId]) state.progress[modId] = {};
+  if(!state.progress[modId][subId]) state.progress[modId][subId] = {checked:false, confidence:0, note:''};
+  Object.assign(state.progress[modId][subId], patch);
+  writeKey(`progress/${modId}/${subId}`, state.progress[modId][subId]);
+  renderAll();
+}
+function allSubsFor(mod){
+  const custom = (state.custom[mod.id] || []).map(c => ({subId:c.id, label:c.label, isCustom:true}));
+  const std = mod.subs.map((label,i) => ({subId:'s'+i, label, isCustom:false}));
+  return std.concat(custom);
+}
+function moduleStats(mod){
+  const subs = allSubsFor(mod);
+  let done=0, weak=0;
+  subs.forEach(s=>{
+    const st = getItemState(mod.id, s.subId);
+    if(st.checked) done++;
+    if(st.confidence>0 && st.confidence<=2) weak++;
+  });
+  return {total:subs.length, done, weak, pct: subs.length? Math.round(done/subs.length*100):0};
+}
+
+/* ---------- RENDER: OVERVIEW ---------- */
+function renderTicks(mod){
+  const subs = allSubsFor(mod);
+  return subs.map(s=>{
+    const st = getItemState(mod.id, s.subId);
+    let cls = 'tick';
+    if(st.checked) cls += st.confidence>0 && st.confidence<=2 ? ' weak' : ' done';
+    return `<div class="${cls}" title="${s.label}"></div>`;
+  }).join('');
+}
+function moduleCard(mod){
+  const stats = moduleStats(mod);
+  return `<div class="module-card" onclick="openModule('${mod.id}')">
+    <div class="mname">${mod.name}</div>
+    <div class="ticks">${renderTicks(mod)}</div>
+    <div class="mmeta"><span>${stats.done}/${stats.total} готово</span><span>${stats.pct}%</span></div>
+  </div>`;
+}
+function renderGrids(prefix){
+  document.getElementById(prefix+'-general').innerHTML = MODULES.filter(m=>m.cat==='general').map(moduleCard).join('');
+  document.getElementById(prefix+'-organ').innerHTML = MODULES.filter(m=>m.cat==='organ').map(moduleCard).join('');
+  document.getElementById(prefix+'-final').innerHTML = MODULES.filter(m=>m.cat==='final').map(moduleCard).join('');
+}
+
+function renderOverviewStats(){
+  let totalSubs=0, totalDone=0, totalWeak=0;
+  MODULES.forEach(m=>{
+    const s = moduleStats(m);
+    totalSubs += s.total; totalDone += s.done; totalWeak += s.weak;
+  });
+  document.getElementById('stat-overall').textContent = totalSubs? Math.round(totalDone/totalSubs*100)+'%' : '0%';
+  document.getElementById('stat-done').textContent = totalDone + '/' + totalSubs;
+  document.getElementById('stat-weak').textContent = totalWeak;
+
+  const remaining = totalSubs - totalDone;
+  const target = state.targetDate ? new Date(state.targetDate) : null;
+  const now = new Date();
+  if(target && target > now){
+    const daysLeft = Math.ceil((target-now)/86400000);
+    document.getElementById('days-left').textContent = daysLeft;
+    const weeksLeft = Math.max(daysLeft/7, 1);
+    document.getElementById('stat-pace').textContent = remaining>0 ? Math.ceil(remaining/weeksLeft) : '✓';
+  } else {
+    document.getElementById('days-left').textContent = '—';
+    document.getElementById('stat-pace').textContent = '—';
+  }
+}
+
+/* ---------- RENDER: MODULE DETAIL ---------- */
+let currentModuleId = null;
+function openModule(id){
+  currentModuleId = id;
+  document.querySelector('[data-view="modules"]').click();
+  document.getElementById('modules-list').style.display = 'none';
+  const wrap = document.getElementById('module-detail');
+  wrap.style.display = 'block';
+  renderModuleDetail();
+}
+function closeModule(){
+  currentModuleId = null;
+  document.getElementById('modules-list').style.display = 'block';
+  document.getElementById('module-detail').style.display = 'none';
+}
+function renderModuleDetail(){
+  const mod = MODULES.find(m=>m.id===currentModuleId);
+  if(!mod) return;
+  const subs = allSubsFor(mod);
+  const rows = subs.map(s=>{
+    const st = getItemState(mod.id, s.subId);
+    const confBtns = [1,2,3,4,5].map(n=>
+      `<button class="conf-btn ${st.confidence===n?'active-'+n:''}" onclick="setItemState('${mod.id}','${s.subId}',{confidence:${n}})">${n}</button>`
+    ).join('');
+    const delBtn = s.isCustom ? `<span class="del-x" onclick="deleteCustom('${mod.id}','${s.subId}')">✕</span>` : '';
+    return `<div class="item-row">
+      <input type="checkbox" ${st.checked?'checked':''} onchange="setItemState('${mod.id}','${s.subId}',{checked:this.checked})">
+      <div class="item-body">
+        <div class="item-name ${st.checked?'done':''}">${s.label}</div>
+        <div class="item-controls">
+          <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);">уверенность:</span>
+          <div class="conf-btns">${confBtns}</div>
+          <input class="note-input" placeholder="заметка / из какого UWorld блока" value="${(st.note||'').replace(/"/g,'&quot;')}" onblur="setItemState('${mod.id}','${s.subId}',{note:this.value})">
+          ${delBtn}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('module-detail').innerHTML = `
+    <div class="back-link" onclick="closeModule()">← ко всем темам</div>
+    <div class="module-detail-inner module-detail">
+      <h1>${mod.name}</h1>
+      ${rows}
+      <div class="add-row">
+        <input id="custom-input-${mod.id}" placeholder="Добавить тему из UWorld/NBME (например: Long QT drugs)">
+        <button class="btn" onclick="addCustom('${mod.id}')">Добавить</button>
+      </div>
+    </div>`;
+}
+function addCustom(modId){
+  const input = document.getElementById('custom-input-'+modId);
+  const label = input.value.trim();
+  if(!label) return;
+  const id = 'c'+Date.now();
+  if(!state.custom[modId]) state.custom[modId] = [];
+  state.custom[modId].push({id, label});
+  writeKey(`custom/${modId}`, state.custom[modId]);
+  input.value = '';
+  renderModuleDetail();
+  renderAll();
+}
+function deleteCustom(modId, subId){
+  state.custom[modId] = (state.custom[modId]||[]).filter(c=>c.id!==subId);
+  if(state.progress[modId]) delete state.progress[modId][subId];
+  writeKey(`custom/${modId}`, state.custom[modId]);
+  if(state.progress[modId]) writeKey(`progress/${modId}`, state.progress[modId]);
+  renderModuleDetail();
+  renderAll();
+}
+
+/* ---------- RENDER: WEAK SPOTS ---------- */
+function renderWeak(){
+  const items = [];
+  MODULES.forEach(mod=>{
+    allSubsFor(mod).forEach(s=>{
+      const st = getItemState(mod.id, s.subId);
+      if(st.confidence>0 && st.confidence<=2){
+        items.push({mod, label:s.label, note:st.note});
+      }
+    });
+  });
+  const list = document.getElementById('weak-list');
+  if(!items.length){
+    list.innerHTML = '<div class="empty">Пока нет отмеченных слабых мест. Ставь уверенность 1–2 у тем, которые даются тяжело — они появятся здесь автоматически.</div>';
+    return;
+  }
+  list.innerHTML = items.map(it=>`
+    <div class="weak-item">
+      <div>
+        <div class="wtitle">${it.label}</div>
+        <div class="wmod">${it.mod.name}${it.note? ' · '+it.note : ''}</div>
+      </div>
+      <div class="jump" onclick="openModule('${it.mod.id}')">Открыть →</div>
+    </div>`).join('');
+}
+
+/* ---------- RENDER: LOG ---------- */
+function renderLog(){
+  const entries = Object.entries(state.log || {}).sort((a,b)=>b[0]-a[0]);
+  const list = document.getElementById('log-list');
+  if(!entries.length){
+    list.innerHTML = '<div class="empty">Пока пусто. Запиши первую сессию выше.</div>';
+    return;
+  }
+  list.innerHTML = entries.map(([ts, entry])=>{
+    const d = new Date(Number(ts));
+    return `<div class="log-entry"><div class="ts">${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>${(entry.text||'').replace(/</g,'&lt;')}</div>`;
+  }).join('');
+}
+document.getElementById('log-submit').addEventListener('click', ()=>{
+  const ta = document.getElementById('log-text');
+  const text = ta.value.trim();
+  if(!text) return;
+  const ts = Date.now();
+  if(!state.log) state.log = {};
+  state.log[ts] = {text};
+  writeKey(`log/${ts}`, {text});
+  ta.value = '';
+  renderLog();
+});
+
+/* ---------- TARGET DATE ---------- */
+const targetInput = document.getElementById('target-date');
+targetInput.addEventListener('change', ()=>{
+  state.targetDate = targetInput.value;
+  writeKey('targetDate', state.targetDate);
+  renderOverviewStats();
+});
+
+/* ---------- NAV ---------- */
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    if(btn.dataset.view === 'modules' && !currentModuleId){
+      document.getElementById('modules-list').style.display = 'block';
+      document.getElementById('module-detail').style.display = 'none';
+    }
+  });
+});
+
+/* ---------- MASTER RENDER ---------- */
+function renderAll(){
+  if(state.targetDate) targetInput.value = state.targetDate;
+  renderGrids('grid');
+  renderGrids('mgrid');
+  renderOverviewStats();
+  renderWeak();
+  renderLog();
+  if(currentModuleId) renderModuleDetail();
+}
+renderAll();
+</script>
+</body>
+</html>
