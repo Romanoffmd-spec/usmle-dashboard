@@ -309,12 +309,13 @@
   ::highlight(hl-blue){background-color:rgba(90,169,214,.4);}
   ::highlight(hl-orange){background-color:rgba(232,148,74,.45);}
 
-  .reader-sel-popup{
-    display:none; position:fixed; z-index:250; background:var(--teal-deep); border-radius:20px;
-    padding:6px 8px; gap:6px; align-items:center; box-shadow:0 6px 18px rgba(0,0,0,.3);
+  .reader-sel-bar{
+    display:none; align-items:center; gap:8px; background:var(--teal-deep); padding:10px 16px;
+    border-top:1px solid rgba(255,255,255,.15);
   }
-  .reader-sel-popup.show{display:flex;}
-  .sel-color{width:20px; height:20px; border-radius:50%; border:1px solid rgba(255,255,255,.5); cursor:pointer; padding:0; background-color:var(--pen-color,#ccc);}
+  .reader-sel-bar.show{display:flex;}
+  .reader-sel-hint{font-family:var(--mono); font-size:10.5px; color:rgba(255,255,255,.7); margin-right:4px; white-space:nowrap;}
+  .sel-color{width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,.5); cursor:pointer; padding:0; background-color:var(--pen-color,#ccc); flex-shrink:0;}
   .sel-color[data-color="red"]{--pen-color:#e05a4e;}
   .sel-color[data-color="yellow"]{--pen-color:#e8c547;}
   .sel-color[data-color="green"]{--pen-color:#5aa96c;}
@@ -322,7 +323,7 @@
   .sel-color[data-color="orange"]{--pen-color:#e8944a;}
   .sel-clarify{
     font-family:var(--mono); font-size:11px; text-transform:uppercase; background:#fff; color:var(--teal-deep);
-    border:none; border-radius:14px; padding:6px 12px; cursor:pointer; white-space:nowrap;
+    border:none; border-radius:14px; padding:8px 14px; cursor:pointer; white-space:nowrap; margin-left:auto;
   }
 
   .log-form{display:flex; gap:8px; margin-bottom:16px;}
@@ -627,14 +628,15 @@
         <canvas id="reader-canvas"></canvas>
         <div class="reader-text-layer" id="reader-text-layer"></div>
       </div>
-      <div class="reader-sel-popup" id="reader-sel-popup">
-        <button class="sel-color" data-color="red" onclick="applySelHighlight('red')"></button>
-        <button class="sel-color" data-color="yellow" onclick="applySelHighlight('yellow')"></button>
-        <button class="sel-color" data-color="green" onclick="applySelHighlight('green')"></button>
-        <button class="sel-color" data-color="blue" onclick="applySelHighlight('blue')"></button>
-        <button class="sel-color" data-color="orange" onclick="applySelHighlight('orange')"></button>
-        <button class="sel-clarify" onclick="clarifySelection()">Уточнить</button>
-      </div>
+    </div>
+    <div class="reader-sel-bar" id="reader-sel-bar">
+      <span class="reader-sel-hint">Выделено — что сделать?</span>
+      <button class="sel-color" data-color="red" onclick="applySelHighlight('red')"></button>
+      <button class="sel-color" data-color="yellow" onclick="applySelHighlight('yellow')"></button>
+      <button class="sel-color" data-color="green" onclick="applySelHighlight('green')"></button>
+      <button class="sel-color" data-color="blue" onclick="applySelHighlight('blue')"></button>
+      <button class="sel-color" data-color="orange" onclick="applySelHighlight('orange')"></button>
+      <button class="sel-clarify" onclick="clarifySelection()">Уточнить</button>
     </div>
     <div class="reader-controls">
       <button class="reader-nav-btn" onclick="readerPrev()">‹</button>
@@ -2339,7 +2341,7 @@ async function openReader(modId){
   readerPenColor = null;
   readerEraserActive = false;
   updatePenButtons();
-  hideSelPopup();
+  clearReaderSelection();
 
   if(!src.hasPdf){
     statusEl.textContent = uiLang==='ru' ? 'Для этого источника не был загружен PDF.' : 'No PDF was uploaded for this source.';
@@ -2384,7 +2386,7 @@ async function renderReaderPage(num){
   readerRendering = true;
   readerCurrentPage = Math.min(Math.max(num,1), readerPdfDoc.numPages);
   document.getElementById('reader-page-input').value = readerCurrentPage;
-  hideSelPopup();
+  clearReaderSelection();
   const page = await readerPdfDoc.getPage(readerCurrentPage);
   const canvas = document.getElementById('reader-canvas');
   const wrap = document.getElementById('reader-canvas-wrap');
@@ -2488,105 +2490,93 @@ function updatePenButtons(){
   if(eraserBtn) eraserBtn.classList.toggle('active', readerEraserActive);
 }
 
-function showSelPopup(range){
-  const popup = document.getElementById('reader-sel-popup');
-  const rect = range.getBoundingClientRect();
-  popup.style.display = 'flex'; // measure real width before final placement
-  const popupWidth = popup.offsetWidth || 260;
-  const popupHeight = popup.offsetHeight || 40;
-  let left = rect.left + rect.width/2 - popupWidth/2;
-  left = Math.max(8, Math.min(left, window.innerWidth - popupWidth - 8));
-  let top = rect.top - popupHeight - 10;
-  if(top < 8) top = rect.bottom + 10; // flip below if no room above
-  popup.style.left = left + 'px';
-  popup.style.top = top + 'px';
-  popup.classList.add('show');
+function showSelBar(){
+  document.getElementById('reader-sel-bar').classList.add('show');
 }
-function hideSelPopup(){
-  document.getElementById('reader-sel-popup').classList.remove('show');
+function hideSelBar(){
+  document.getElementById('reader-sel-bar').classList.remove('show');
+}
+function clearReaderSelection(){
   currentReaderSelectionRange = null;
   currentReaderSelectionText = '';
+  hideSelBar();
+  const sel = window.getSelection();
+  if(sel) sel.removeAllRanges();
 }
 function applySelHighlight(color){
   if(!currentReaderSelectionRange || !readerHasHighlightAPI) return;
   const range = currentReaderSelectionRange;
   const start = itemOffsetFromNode(range.startContainer, range.startOffset);
   const end = itemOffsetFromNode(range.endContainer, range.endOffset);
-  if(!start || !end) return;
+  if(!start || !end){ clearReaderSelection(); return; }
   const rec = {id:'h_'+Date.now(), color, startItem:start.item, startOffset:start.offset, endItem:end.item, endOffset:end.offset, text: currentReaderSelectionText.slice(0,300)};
   const list = getPageHighlights();
   list.push(rec);
   savePageHighlights();
   readerHighlightSets[color].add(range.cloneRange());
-  const sel = window.getSelection();
-  if(sel) sel.removeAllRanges();
-  hideSelPopup();
+  clearReaderSelection();
 }
-function eraseHighlightAtPoint(x, y){
-  let caretRange = null;
-  if(document.caretRangeFromPoint) caretRange = document.caretRangeFromPoint(x, y);
-  else if(document.caretPositionFromPoint){
-    const pos = document.caretPositionFromPoint(x, y);
-    if(pos){ caretRange = document.createRange(); caretRange.setStart(pos.offsetNode, pos.offset); }
-  }
-  if(!caretRange) return;
-  const pt = itemOffsetFromNode(caretRange.startContainer, caretRange.startOffset);
-  if(!pt) return;
+function rangeOverlap(aStart, aEnd, bStart, bEnd){
+  // true if [aStart,aEnd] and [bStart,bEnd] overlap at all (item/offset ordering)
+  return posLTE(aStart, bEnd) && posLTE(bStart, aEnd);
+}
+function eraseOverlappingHighlights(range){
+  const start = itemOffsetFromNode(range.startContainer, range.startOffset);
+  const end = itemOffsetFromNode(range.endContainer, range.endOffset);
+  if(!start || !end) return;
   const list = getPageHighlights();
-  const idx = list.findIndex(rec => posLTE({item:rec.startItem,offset:rec.startOffset}, pt) && posLTE(pt, {item:rec.endItem,offset:rec.endOffset}));
-  if(idx === -1) return;
-  const rec = list[idx];
-  list.splice(idx,1);
+  const remaining = [];
+  let removedAny = false;
+  list.forEach(rec=>{
+    const overlaps = rangeOverlap(start, end, {item:rec.startItem,offset:rec.startOffset}, {item:rec.endItem,offset:rec.endOffset});
+    if(overlaps){ removedAny = true; } else { remaining.push(rec); }
+  });
+  if(!removedAny) return;
+  state.pdfHighlights[pdfHighlightKey()] = remaining;
   savePageHighlights();
-  // rebuild this color's set for the page (simplest reliable way to remove one range)
-  if(readerHighlightSets[rec.color]) readerHighlightSets[rec.color].clear();
   READER_COLORS.forEach(c=>{ if(readerHighlightSets[c]) readerHighlightSets[c].clear(); });
   restorePageHighlights();
 }
 
-function handleReaderSelectionEnd(evt){
-  if(!readerTextLayerOk) return;
+// continuously track the live selection (far more reliable than reading it only at
+// touchend/mouseup, since iOS can otherwise leave stale/empty selection state by then)
+document.addEventListener('selectionchange', ()=>{
+  const overlay = document.getElementById('reader-overlay');
+  if(!overlay || !overlay.classList.contains('show') || !readerTextLayerOk) return;
   const sel = window.getSelection();
-  if(!sel || sel.isCollapsed || !sel.rangeCount){ hideSelPopup(); return; }
+  if(!sel || sel.isCollapsed || !sel.rangeCount){
+    currentReaderSelectionRange = null;
+    currentReaderSelectionText = '';
+    hideSelBar();
+    return;
+  }
   const range = sel.getRangeAt(0);
   const layer = document.getElementById('reader-text-layer');
-  if(!layer.contains(range.commonAncestorContainer)){ return; }
+  if(!layer.contains(range.commonAncestorContainer)) return;
   currentReaderSelectionRange = range.cloneRange();
   currentReaderSelectionText = sel.toString();
+  if(!readerEraserActive) showSelBar();
+});
+
+function handleReaderPointerUp(){
+  if(!document.getElementById('reader-overlay').classList.contains('show')) return;
+  if(!currentReaderSelectionRange) return;
+  if(readerEraserActive){
+    eraseOverlappingHighlights(currentReaderSelectionRange);
+    clearReaderSelection();
+    return;
+  }
   if(readerPenColor){
     applySelHighlight(readerPenColor);
-    return;
   }
-  showSelPopup(range);
 }
-function handleReaderPointerUp(x, y, target){
-  if(!document.getElementById('reader-overlay').classList.contains('show')) return;
-  if(readerEraserActive && target && target.closest && target.closest('#reader-text-layer')){
-    eraseHighlightAtPoint(x, y);
-    const sel = window.getSelection();
-    if(sel) sel.removeAllRanges();
-    return;
-  }
-  handleReaderSelectionEnd();
-}
-document.addEventListener('mouseup', e=>{
-  handleReaderPointerUp(e.clientX, e.clientY, e.target);
-});
-document.addEventListener('touchend', e=>{
-  const t = e.changedTouches && e.changedTouches[0];
-  if(!t) return;
-  setTimeout(()=>{
-    const target = document.elementFromPoint(t.clientX, t.clientY);
-    handleReaderPointerUp(t.clientX, t.clientY, target);
-  }, 30);
-});
+document.addEventListener('mouseup', handleReaderPointerUp);
+document.addEventListener('touchend', ()=>{ setTimeout(handleReaderPointerUp, 30); });
 
 function clarifySelection(){
   if(!currentReaderSelectionText) return;
   const text = currentReaderSelectionText;
-  hideSelPopup();
-  const sel = window.getSelection();
-  if(sel) sel.removeAllRanges();
+  clearReaderSelection();
   currentTutorModuleId = readerModId || '__general__';
   tutorOpen = true;
   panelTab = 'tutor';
@@ -2632,7 +2622,7 @@ function readerJump(val){
 function closeReader(){
   document.getElementById('reader-overlay').classList.remove('show');
   document.getElementById('reader-notes-panel').classList.remove('open');
-  hideSelPopup();
+  clearReaderSelection();
 }
 
 function renderLog(){
