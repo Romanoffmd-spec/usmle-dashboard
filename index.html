@@ -556,14 +556,7 @@
       <div class="stat"><div class="num" id="stat-pace">—</div><div class="label" data-i18n="stat_pace">Тем / неделю нужно</div></div>
     </div>
 
-    <div class="section-label">General Principles</div>
-    <div class="module-grid" id="grid-general"></div>
-
-    <div class="section-label">Organ Systems</div>
-    <div class="module-grid" id="grid-organ"></div>
-
-    <div class="section-label" data-i18n="sec_final">Финал</div>
-    <div class="module-grid" id="grid-final"></div>
+    <div id="grid-container"></div>
   </div>
 
   <!-- MODULES LIST / DETAIL -->
@@ -571,12 +564,7 @@
     <div id="modules-list">
       <h1 data-i18n="modules_title">Все темы</h1>
       <p class="lede" data-i18n="modules_lede">Кликни по блоку, чтобы отметить прогресс и уверенность по каждой подтеме</p>
-      <div class="section-label">General Principles</div>
-      <div class="module-grid" id="mgrid-general"></div>
-      <div class="section-label">Organ Systems</div>
-      <div class="module-grid" id="mgrid-organ"></div>
-      <div class="section-label" data-i18n="sec_final">Финал</div>
-      <div class="module-grid" id="mgrid-final"></div>
+      <div id="mgrid-container"></div>
     </div>
     <div id="module-detail" style="display:none;"></div>
   </div>
@@ -988,11 +976,11 @@ async function generateSource(){
 
   const sysPrompt = text
     ? (uiLang==='ru'
-      ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения, в том же формате, что и First Aid USMLE (модуль -> список конкретных подтем). Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"general"|"organ","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat": "general" — для базовых/сквозных дисциплин (например, общая биохимия, общая физиология, общие принципы, вводные главы); "organ" — для модулей, посвящённых конкретной системе органов/анатомической области (например, сердечно-сосудистая, дыхательная, нервная система и т.п.). Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.`
-      : `Help break a study source into modules and subtopics for a study tracker, in the same format as the First Aid USMLE structure (module -> list of specific subtopics). Analyze the provided text (an excerpt/table of contents from the source "${name}") and output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"general"|"organ","subs":["Subtopic 1","Subtopic 2", ...]}]. The "cat" field: "general" for foundational/cross-cutting subjects (e.g. general biochemistry, general physiology, intro chapters); "organ" for modules covering a specific organ system or anatomical region (e.g. cardiovascular, respiratory, nervous system, etc.). Split the material into 8-20 logical modules (chapters/sections), each with 5-15 specific high-yield subtopics. If the text is short or incomplete (e.g. only part of a textbook), use general knowledge of the subject to reasonably extend the structure, matching the level of detail found in the excerpt.`)
+      ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения. Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"Название категории-группы","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat" — придумай сам, исходя из природы этого конкретного источника: сгруппируй модули по смысловым блокам, естественным для этого предмета (например, для анатомии — по системам органов; для фармакологии — по классам препаратов вроде "Антибиотики", "Анальгетики"; для хирургии — по типам операций; и т.д.). Не используй общие ярлыки вроде "General"/"Organ" — категория должна быть содержательной и понятной именно для этого источника. Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.`
+      : `Help break a study source into modules and subtopics for a study tracker. Analyze the provided text (an excerpt/table of contents from the source "${name}") and output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"Category group name","subs":["Subtopic 1","Subtopic 2", ...]}]. The "cat" field — choose it yourself based on the nature of this specific source: group modules into meaningful blocks natural to the subject (e.g. for anatomy — by organ system; for pharmacology — by drug class like "Antibiotics", "Analgesics"; for surgery — by procedure type; etc.). Don't use generic labels like "General"/"Organ" — the category should be meaningful and specific to this source. Split the material into 8-20 logical modules (chapters/sections), each with 5-15 specific high-yield subtopics. If the text is short or incomplete (e.g. only part of a textbook), use general knowledge of the subject to reasonably extend the structure, matching the level of detail found in the excerpt.`)
     : (uiLang==='ru'
-      ? `Пользователь не прислал текст источника — только название: "${name}". По своим общим знаниям об этой книге/курсе/предмете построй типичную структуру глав и тем, в формате трекера обучения (модуль -> список конкретных подтем). Если это известный учебник (например, Netter's Anatomy, Kaplan Physiology, Robbins Pathology и т.п.) — используй его реальное известное оглавление по памяти, максимально точно. Если название малоизвестно или неоднозначно — построй разумную типовую структуру для предмета с таким названием. Выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"general"|"organ","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat": "general" для базовых/сквозных тем, "organ" для тем по конкретной системе органов/анатомической области. 8-20 модулей, в каждом 5-15 конкретных подтем.`
-      : `The user provided no source text — only a name: "${name}". Using your general knowledge of this book/course/subject, build a typical chapter/topic structure in the study-tracker format (module -> list of specific subtopics). If this is a known textbook (e.g. Netter's Anatomy, Kaplan Physiology, Robbins Pathology, etc.) — recall its real table of contents as accurately as you can from memory. If the name is obscure or ambiguous, build a reasonable generic structure for a subject with that name. Output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"general"|"organ","subs":["Subtopic 1","Subtopic 2", ...]}]. The "cat" field: "general" for foundational/cross-cutting topics, "organ" for topics on a specific organ system/anatomical region. 8-20 modules, each with 5-15 specific subtopics.`);
+      ? `Пользователь не прислал текст источника — только название: "${name}". По своим общим знаниям об этой книге/курсе/предмете построй типичную структуру глав и тем, в формате трекера обучения (модуль -> список конкретных подтем). Если это известный учебник (например, Netter's Anatomy, Kaplan Physiology, Robbins Pathology и т.п.) — используй его реальное известное оглавление по памяти, максимально точно. Если название малоизвестно или неоднозначно — построй разумную типовую структуру для предмета с таким названием. Выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"Название категории-группы","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat" придумай сам — сгруппируй по смысловым блокам, естественным именно для этого предмета (не общие ярлыки вроде "General"/"Organ"). 8-20 модулей, в каждом 5-15 конкретных подтем.`
+      : `The user provided no source text — only a name: "${name}". Using your general knowledge of this book/course/subject, build a typical chapter/topic structure in the study-tracker format (module -> list of specific subtopics). If this is a known textbook (e.g. Netter's Anatomy, Kaplan Physiology, Robbins Pathology, etc.) — recall its real table of contents as accurately as you can from memory. If the name is obscure or ambiguous, build a reasonable generic structure for a subject with that name. Output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"Category group name","subs":["Subtopic 1","Subtopic 2", ...]}]. Choose the "cat" field yourself — group into meaningful blocks natural to this specific subject (not generic labels like "General"/"Organ"). 8-20 modules, each with 5-15 specific subtopics.`);
 
   const userContent = text || `Source name: ${name}`;
   try{
@@ -1023,18 +1011,13 @@ async function generateSource(){
     const parsed = JSON.parse(jsonMatch[0]);
     if(!Array.isArray(parsed) || !parsed.length) throw new Error(uiLang==='ru' ? 'Пустая структура' : 'Empty structure');
 
-    const ORGAN_KEYWORDS = ['cardio','heart','vascular','pulmonary','respirat','lung','renal','kidney','gastro','gi ','hepat','liver','biliary','pancrea','endocrine','thyroid','adrenal','hemat','oncolog','blood','musculoskeletal','msk','bone','joint','skin','derm','connective','neuro','brain','nervous','special senses','eye','ear','psychiat','mental','reproduct','genital','breast','prostate','uterus','ovar','testic','urinary','immune system','system'];
-    function guessCat(providedCat, moduleName){
-      if(providedCat === 'organ') return 'organ';
-      const lower = moduleName.toLowerCase();
-      return ORGAN_KEYWORDS.some(kw => lower.includes(kw)) ? 'organ' : 'general';
-    }
     const sourceId = slugify(name);
     const modules = parsed.map((m, i)=>{
       const moduleName = (m.name||'Module '+(i+1)).toString();
+      const catRaw = (m.cat||'').toString().trim();
       return {
         id: sourceId+'_m'+i,
-        cat: guessCat(m.cat, moduleName),
+        cat: catRaw || (uiLang==='ru' ? 'Темы' : 'Topics'),
         name: moduleName,
         subs: Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : []
       };
@@ -1631,10 +1614,9 @@ function renderBlockSelectorPanel(){
   const sel = state.selectedModules || MODULES.map(m=>m.id);
   let html = '';
   let lastCat = null;
-  const catLabels = {general:'General Principles', organ:'Organ Systems', final:'Финал'};
   MODULES.forEach(m=>{
     if(m.cat !== lastCat){
-      html += `<div class="block-selector-group">${catLabels[m.cat]}</div>`;
+      html += `<div class="block-selector-group">${catLabel(m.cat)}</div>`;
       lastCat = m.cat;
     }
     html += `<label class="block-selector-item">
@@ -1687,11 +1669,26 @@ function moduleCard(mod){
     <div class="mmeta"><span>${stats.done}/${stats.total} ${t('done_word')}</span><span>${stats.pct}%</span></div>
   </div>`;
 }
+function catLabel(cat){
+  if(cat === 'general') return 'General Principles';
+  if(cat === 'organ') return 'Organ Systems';
+  if(cat === 'final') return t('sec_final');
+  return cat; // custom sources: the AI-chosen category name is already the display label
+}
 function renderGrids(prefix){
   const active = activeModules();
-  document.getElementById(prefix+'-general').innerHTML = active.filter(m=>m.cat==='general').map(moduleCard).join('') || '<div class="empty">Нет выбранных блоков в этой категории.</div>';
-  document.getElementById(prefix+'-organ').innerHTML = active.filter(m=>m.cat==='organ').map(moduleCard).join('') || '<div class="empty">Нет выбранных блоков в этой категории.</div>';
-  document.getElementById(prefix+'-final').innerHTML = active.filter(m=>m.cat==='final').map(moduleCard).join('') || '<div class="empty">Нет выбранных блоков в этой категории.</div>';
+  const container = document.getElementById(prefix+'-container');
+  if(!container) return;
+  // preserve category order by first appearance in the full module list
+  const order = [];
+  MODULES.forEach(m=>{ if(!order.includes(m.cat)) order.push(m.cat); });
+  let html = '';
+  order.forEach(cat=>{
+    const inCat = active.filter(m=>m.cat===cat);
+    if(!inCat.length) return; // empty categories are skipped entirely, not shown as empty placeholders
+    html += `<div class="section-label">${catLabel(cat)}</div><div class="module-grid">${inCat.map(moduleCard).join('')}</div>`;
+  });
+  container.innerHTML = html;
 }
 
 function renderOverviewStats(){
