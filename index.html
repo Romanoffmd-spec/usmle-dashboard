@@ -175,6 +175,33 @@
   .weak-item .jump{font-family:var(--mono); font-size:11px; color:var(--teal); cursor:pointer; white-space:nowrap;}
   .empty{color:var(--ink-soft); font-size:13px; font-style:italic; padding:20px 0;}
 
+  .cal-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .cal-month-label{font-family:var(--mono); font-size:15px; font-weight:700; color:var(--teal-deep);}
+  .cal-nav{
+    font-family:var(--mono); font-size:16px; width:32px; height:32px; border-radius:50%;
+    border:1px solid var(--line); background:var(--paper); color:var(--teal); cursor:pointer;
+  }
+  .cal-weekdays{
+    display:grid; grid-template-columns:repeat(7,1fr); font-family:var(--mono); font-size:10.5px;
+    text-transform:uppercase; color:var(--ink-soft); text-align:center; margin-bottom:4px; letter-spacing:.03em;
+  }
+  .cal-grid{
+    display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--line);
+    border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; margin-bottom:22px;
+  }
+  .cal-day{background:var(--paper); min-height:64px; padding:5px 6px; position:relative; font-size:10.5px;}
+  .cal-day.empty{background:var(--bg);}
+  .cal-daynum{font-family:var(--mono); font-size:12px; color:var(--ink-soft); display:block; text-align:right;}
+  .cal-day.today .cal-daynum{
+    display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;
+    background:var(--teal); color:#fff; border-radius:50%; float:right;
+  }
+  .cal-chip{
+    display:block; font-size:9.5px; color:var(--teal); background:var(--mint); border-radius:2px;
+    padding:1px 4px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .cal-mins{font-family:var(--mono); font-size:10px; color:var(--ink-soft); display:block; margin-top:3px; clear:both;}
+
   .log-form{display:flex; gap:8px; margin-bottom:16px;}
   .log-form textarea{
     flex:1; font-family:var(--sans); font-size:13px; padding:9px 10px; border:1px solid var(--line);
@@ -485,7 +512,19 @@
   <!-- LOG -->
   <div class="view" id="view-log">
     <h1>Дневник сессий</h1>
-    <p class="lede">Плавающий график — без фиксированных часов. Просто фиксируй, что прошёл сегодня.</p>
+    <p class="lede">Плавающий график — без фиксированных часов. Помодоро-сессии записываются сюда автоматически.</p>
+
+    <div class="cal-header">
+      <button class="cal-nav" onclick="calNav(-1)">‹</button>
+      <div class="cal-month-label" id="cal-month-label"></div>
+      <button class="cal-nav" onclick="calNav(1)">›</button>
+    </div>
+    <div class="cal-weekdays">
+      <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+
+    <div class="section-label">Заметки</div>
     <div class="log-form">
       <textarea id="log-text" placeholder="Что прошёл сегодня? (например: Cardio patho + 40 UWorld вопросов, 62%)"></textarea>
       <button class="btn" id="log-submit">Записать</button>
@@ -544,6 +583,7 @@ let state = {
   progress: {},   // moduleId -> subIndex/customId -> {checked, confidence, note}
   custom: {},     // moduleId -> [{id, label}]
   log: {},        // ts -> {text}
+  sessions: {},   // 'YYYY-MM-DD' -> [{min, moduleId, moduleName, pct, ts}]
   targetDate: '',
   selectedModules: MODULES.map(m=>m.id) // default: all blocks active
 };
@@ -614,8 +654,10 @@ function pomoAdjust(deltaMin){
   pomoRemainingSec = Math.min(180*60, Math.max(60, pomoRemainingSec + deltaMin*60));
   updatePomoDigits();
 }
+let pomoLastSessionSec = 0;
 function pomoBigStart(){
   const totalSec = pomoState === 'paused' ? pomoRemainingSec : pomoRemainingSec;
+  pomoLastSessionSec = totalSec;
   pomoEndTime = Date.now() + totalSec*1000;
   localStorage.setItem('pomoEndTime', pomoEndTime);
   localStorage.setItem('pomoDurationSec', totalSec);
@@ -674,6 +716,7 @@ function pomoTick(){
 }
 function pomoComplete(){
   clearInterval(pomoInterval);
+  logPomoSession(pomoLastSessionSec || 25*60);
   pomoState = 'idle';
   pomoBtn.classList.remove('running');
   pomoDial.style.animation = 'none';
@@ -753,6 +796,7 @@ function attachDbListener(){
     if(remote.progress) deepMerge(state.progress, remote.progress);
     if(remote.custom) deepMerge(state.custom, remote.custom);
     if(remote.log) deepMerge(state.log, remote.log);
+    if(remote.sessions) deepMerge(state.sessions, remote.sessions);
     if(remote.targetDate !== undefined) state.targetDate = remote.targetDate;
     if(remote.selectedModules !== undefined) state.selectedModules = remote.selectedModules;
     syncReady = true;
@@ -1307,6 +1351,74 @@ function renderWeak(){
 }
 
 /* ---------- RENDER: LOG ---------- */
+/* ---------- CALENDAR / SESSION LOG ---------- */
+function localDateKey(d){
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function logPomoSession(durationSec){
+  const mod = currentModuleId ? MODULES.find(m=>m.id===currentModuleId) : null;
+  const dateKey = localDateKey(new Date());
+  if(!state.sessions) state.sessions = {};
+  if(!state.sessions[dateKey]) state.sessions[dateKey] = [];
+  state.sessions[dateKey].push({
+    min: Math.round(durationSec/60),
+    moduleId: mod ? mod.id : null,
+    moduleName: mod ? mod.name : null,
+    pct: mod ? moduleStats(mod).pct : null,
+    ts: Date.now()
+  });
+  writeKey('sessions/'+dateKey, state.sessions[dateKey]);
+  renderCalendar();
+}
+let calendarViewDate = new Date();
+function calNav(delta){
+  calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth()+delta, 1);
+  renderCalendar();
+}
+const RU_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+function renderCalendar(){
+  const grid = document.getElementById('cal-grid');
+  const label = document.getElementById('cal-month-label');
+  if(!grid || !label) return;
+  const year = calendarViewDate.getFullYear();
+  const month = calendarViewDate.getMonth();
+  label.textContent = RU_MONTHS[month] + ' ' + year;
+
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7; // Monday-first
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const todayKey = localDateKey(new Date());
+
+  let cells = '';
+  for(let i=0; i<startOffset; i++){
+    cells += '<div class="cal-day empty"></div>';
+  }
+  for(let d=1; d<=daysInMonth; d++){
+    const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const sessions = (state.sessions && state.sessions[dateKey]) || [];
+    const isToday = dateKey === todayKey;
+    let totalMin = 0;
+    const topicMap = {};
+    sessions.forEach(s=>{
+      totalMin += s.min || 0;
+      if(s.moduleName){
+        topicMap[s.moduleName] = s.pct !== null && s.pct !== undefined ? s.pct : topicMap[s.moduleName];
+      }
+    });
+    const chips = Object.entries(topicMap).slice(0,2).map(([name,pct])=>
+      `<span class="cal-chip">${name}${pct!==undefined && pct!==null ? ' '+pct+'%' : ''}</span>`
+    ).join('');
+    const minsLabel = totalMin ? `<span class="cal-mins">${totalMin} мин</span>` : '';
+    cells += `<div class="cal-day ${isToday?'today':''}">
+      <span class="cal-daynum">${d}</span>
+      ${chips}
+      ${minsLabel}
+    </div>`;
+  }
+  grid.innerHTML = cells;
+}
+
 function renderLog(){
   const entries = Object.entries(state.log || {}).sort((a,b)=>b[0]-a[0]);
   const list = document.getElementById('log-list');
@@ -1361,6 +1473,7 @@ function renderAll(){
   renderGrids('mgrid');
   renderOverviewStats();
   renderWeak();
+  renderCalendar();
   renderLog();
   if(currentModuleId) renderModuleDetail();
 }
