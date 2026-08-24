@@ -134,7 +134,10 @@
   .source-item .src-del{color:var(--red); cursor:pointer; font-family:var(--mono); font-size:12px;}
   .source-item .src-attach{cursor:pointer; font-size:13px;}
 
-  .module-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px;}
+  .module-grid{display:grid; grid-template-columns:repeat(auto-fill,260px); gap:10px;}
+  #grid-container, #mgrid-container{display:flex; flex-wrap:wrap; gap:22px 30px; align-items:flex-start;}
+  .category-block{display:flex; flex-direction:column; flex:0 0 auto;}
+  .category-block .section-label{margin:0 0 10px;}
   .module-card{
     background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
     padding:14px 16px; cursor:pointer; transition:border-color .12s;
@@ -426,6 +429,7 @@
     .countdown{justify-content:flex-start; text-align:left;}
     main{padding:16px 10px;}
     .module-grid{grid-template-columns:1fr;}
+    .category-block{width:100%;}
   }
 </style>
 </head>
@@ -1832,7 +1836,7 @@ function renderGrids(prefix){
   order.forEach(cat=>{
     const inCat = active.filter(m=>m.cat===cat);
     if(!inCat.length) return; // empty categories are skipped entirely, not shown as empty placeholders
-    html += `<div class="section-label">${catLabel(cat)}</div><div class="module-grid">${inCat.map(moduleCard).join('')}</div>`;
+    html += `<div class="category-block"><div class="section-label">${catLabel(cat)}</div><div class="module-grid">${inCat.map(moduleCard).join('')}</div></div>`;
   });
   container.innerHTML = html;
 }
