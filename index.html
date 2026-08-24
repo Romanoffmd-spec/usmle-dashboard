@@ -978,7 +978,7 @@ function renderSourcePanel(){
   label.textContent = sources[activeSourceId].name;
   list.innerHTML = Object.entries(sources).map(([id, src])=>{
     const delBtn = src.builtin ? '' : `<span class="src-del" onclick="event.stopPropagation(); deleteSource('${id}')">✕</span>`;
-    const pdfBtn = (!src.builtin && src.hasPdf)
+    const pdfBtn = !src.builtin
       ? `<span class="src-attach" title="${uiLang==='ru'?'Прикрепить PDF на этом устройстве':'Attach PDF on this device'}" onclick="event.stopPropagation(); triggerAttachPdf('${id}')">📎</span>`
       : '';
     return `<div class="source-item ${id===activeSourceId?'active':''}" onclick="switchSource('${id}')">
@@ -995,7 +995,19 @@ function triggerAttachPdf(sourceId){
     try{
       await savePdfLocally(sourceId, input.files[0]);
       readerPdfDoc = null; readerSourceId = null; // force reload next time reader opens
-      alert(uiLang==='ru' ? 'PDF прикреплён на этом устройстве.' : 'PDF attached on this device.');
+      if(state.customSources[sourceId] && !state.customSources[sourceId].hasPdf){
+        state.customSources[sourceId].hasPdf = true;
+        writeKey('customSources/'+sourceId+'/hasPdf', true);
+        rebuildSourcesRegistry();
+      }
+      const hasPageRanges = (sources[sourceId].modules || []).some(m=>m.pages);
+      if(!hasPageRanges){
+        alert(uiLang==='ru'
+          ? 'PDF сохранён на этом устройстве, но у этого источника нет диапазонов страниц по темам (он был создан до этой функции) — постраничное чтение по конкретным темам будет недоступно. Если хочешь эту функцию — удали источник и сгенерируй заново из этого же PDF.'
+          : 'PDF saved on this device, but this source has no per-topic page ranges (it was created before this feature) — page-by-page reading per topic won\'t be available. If you want that, delete the source and regenerate it from this same PDF.');
+      } else {
+        alert(uiLang==='ru' ? 'PDF прикреплён на этом устройстве.' : 'PDF attached on this device.');
+      }
     }catch(e){
       alert((uiLang==='ru'?'Не удалось сохранить файл: ':'Could not save file: ')+e.message);
     }
