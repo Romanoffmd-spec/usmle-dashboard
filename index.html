@@ -49,14 +49,15 @@
     display:flex; align-items:center; gap:10px;
   }
   .countdown b{color:var(--teal); font-size:15px;}
-  #sync-dot{width:7px; height:7px; border-radius:50%; background:#c9b98a; display:inline-block; margin-right:5px;}
-  #sync-dot.on{background:var(--green);}
-  #sync-dot.off{background:var(--red);}
   .key-status{font-family:var(--mono); font-size:11px; color:var(--ink-soft); display:inline-flex; align-items:center; gap:5px;}
   .key-dot{width:7px; height:7px; border-radius:50%; background:#bbb; display:inline-block; flex-shrink:0;}
   .key-dot.checking{background:var(--amber); animation:blink 1s infinite;}
   .key-dot.active{background:var(--green);}
   .key-dot.error{background:var(--red);}
+  .key-widget{display:inline-flex; align-items:center; gap:6px;}
+  .key-widget.collapsed input{display:none;}
+  .key-widget.collapsed .key-status{cursor:pointer; padding:5px 8px; border:1px solid var(--line); border-radius:2px;}
+  .key-widget:not(.collapsed) .key-status{display:none;}
 
   nav{
     display:flex; gap:2px; padding:0 20px; background:var(--paper); border-bottom:1px solid var(--line);
@@ -252,12 +253,13 @@
   </div>
   <div class="countdown">
     <select id="llm-provider" style="font-family:var(--mono);font-size:11px;padding:5px 6px;border:1px solid var(--line);border-radius:2px;">
-      <option value="gemini">Gemini (бесплатно)</option>
+      <option value="gemini">Gemini (free)</option>
       <option value="claude">Claude</option>
     </select>
-    <input type="password" id="api-key-input" placeholder="API ключ" style="font-family:var(--mono);font-size:11px;padding:5px 8px;border:1px solid var(--line);border-radius:2px;width:130px;">
-    <span class="key-status" id="key-status"><span class="key-dot" id="key-dot"></span><span id="key-status-text">нет ключа</span></span>
-    <span><span id="sync-dot"></span><span id="sync-label">connecting…</span></span>
+    <span class="key-widget" id="key-widget">
+      <input type="password" id="api-key-input" placeholder="API key" style="font-family:var(--mono);font-size:11px;padding:5px 8px;border:1px solid var(--line);border-radius:2px;width:130px;">
+      <span class="key-status" id="key-status" onclick="expandKeyWidget()"><span class="key-dot" id="key-dot"></span><span id="key-status-text">No key</span></span>
+    </span>
     <span>Target: <input type="date" id="target-date"></span>
     <span>Days left: <b id="days-left">—</b></span>
   </div>
@@ -395,10 +397,7 @@ loadLocal();
 /* ---------- FIREBASE SYNC (per-key merge, never full replace) ---------- */
 let syncReady = false;
 function setSyncDot(status){
-  const dot = document.getElementById('sync-dot');
-  const label = document.getElementById('sync-label');
-  dot.className = status;
-  label.textContent = status === 'on' ? 'синк активен' : status === 'off' ? 'офлайн (сохранено локально)' : 'подключение…';
+  // sync indicator removed from UI; sync itself still runs in the background
 }
 
 let dbListenerAttached = false;
@@ -483,15 +482,25 @@ const apiKeyInput = document.getElementById('api-key-input');
 const keyDot = document.getElementById('key-dot');
 const keyStatusText = document.getElementById('key-status-text');
 function currentProvider(){ return localStorage.getItem('usmleTutorProvider') || 'gemini'; }
+const keyWidget = document.getElementById('key-widget');
 function setKeyStatus(state, text){
   keyDot.className = 'key-dot ' + state;
   keyStatusText.textContent = text;
+  if(state === 'active'){
+    keyWidget.classList.add('collapsed');
+  } else {
+    keyWidget.classList.remove('collapsed');
+  }
+}
+function expandKeyWidget(){
+  keyWidget.classList.remove('collapsed');
+  apiKeyInput.focus();
 }
 function loadKeyForProvider(){
   const key = localStorage.getItem('usmleTutorApiKey_'+currentProvider()) || '';
   apiKeyInput.value = key;
-  apiKeyInput.placeholder = currentProvider()==='gemini' ? 'Gemini API ключ' : 'Claude API ключ';
-  if(key) validateAndSaveKey(false); else setKeyStatus('', 'нет ключа');
+  apiKeyInput.placeholder = currentProvider()==='gemini' ? 'Gemini API key' : 'Claude API key';
+  if(key) validateAndSaveKey(false); else setKeyStatus('', 'No key');
 }
 providerSelect.value = currentProvider();
 loadKeyForProvider();
@@ -503,8 +512,8 @@ async function validateAndSaveKey(showChecking){
   const provider = currentProvider();
   const key = apiKeyInput.value.trim();
   localStorage.setItem('usmleTutorApiKey_'+provider, key);
-  if(!key){ setKeyStatus('', 'нет ключа'); return; }
-  if(showChecking !== false) setKeyStatus('checking', 'проверка…');
+  if(!key){ setKeyStatus('', 'No key'); return; }
+  if(showChecking !== false) setKeyStatus('checking', 'Checking…');
   try{
     let ok = false;
     if(provider === 'gemini'){
@@ -516,9 +525,9 @@ async function validateAndSaveKey(showChecking){
       });
       ok = r.ok;
     }
-    setKeyStatus(ok?'active':'error', ok?'активен':'ошибка ключа');
+    setKeyStatus(ok?'active':'error', ok?'Active':'Invalid key');
   } catch(e){
-    setKeyStatus('error', 'нет связи');
+    setKeyStatus('error', 'No connection');
   }
 }
 apiKeyInput.addEventListener('blur', ()=>validateAndSaveKey(true));
