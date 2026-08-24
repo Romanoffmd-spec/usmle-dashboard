@@ -211,10 +211,14 @@
     align-items:center; justify-content:center; padding:20px;
   }
   #note-overlay.show{display:flex;}
-  .note-card{max-width:380px; text-align:left;}
-  .note-modal-date{font-family:var(--mono); font-size:12px; color:var(--teal); text-transform:uppercase; letter-spacing:.04em; margin-bottom:12px;}
-  .note-modal-entry{font-size:13.5px; line-height:1.5; margin-bottom:12px; white-space:pre-wrap;}
-  .note-modal-entry .nts{font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); margin-bottom:3px; display:block;}
+  .note-card{max-width:520px; width:92vw; text-align:left; padding:26px 24px;}
+  .note-modal-date{font-family:var(--mono); font-size:18px; font-weight:700; color:var(--teal-deep); margin-bottom:16px; text-align:center;}
+  .note-modal-body{max-height:55vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:16px;}
+  .note-modal-entry{
+    font-size:13.5px; line-height:1.5; white-space:pre-wrap; background:var(--bg);
+    border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px;
+  }
+  .note-modal-entry .nts{font-family:var(--mono); font-size:10.5px; color:var(--teal); margin-bottom:5px; display:block; font-weight:600;}
 
   .log-form{display:flex; gap:8px; margin-bottom:16px;}
   .log-form textarea{
@@ -460,7 +464,7 @@
 <div id="note-overlay">
   <div class="pomo-card note-card">
     <div class="note-modal-date" id="note-modal-date"></div>
-    <div id="note-modal-body"></div>
+    <div class="note-modal-body" id="note-modal-body"></div>
     <button class="btn" onclick="closeDayNote()">Закрыть</button>
   </div>
 </div>
@@ -540,7 +544,6 @@
       <textarea id="log-text" placeholder="Что хочешь отметить для себя сегодня? К чему вернуться, что было сложно, какие хайлайты дня…"></textarea>
       <button class="btn" id="log-submit">Записать</button>
     </div>
-    <div id="log-list"></div>
 
     <div class="section-label">Календарь</div>
     <div class="cal-header">
@@ -552,6 +555,9 @@
       <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
+
+    <div class="section-label">Все записи</div>
+    <div id="log-list"></div>
   </div>
 
 </main>
@@ -1449,10 +1455,12 @@ function notesForDate(dateKey){
 }
 function openDayNote(dateKey){
   const entries = notesForDate(dateKey).sort((a,b)=>a[0]-b[0]);
-  document.getElementById('note-modal-date').textContent = dateKey;
+  const [y,m,d] = dateKey.split('-').map(Number);
+  const dateObj = new Date(y, m-1, d);
+  document.getElementById('note-modal-date').textContent = dateObj.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
   document.getElementById('note-modal-body').innerHTML = entries.map(([ts, entry])=>{
-    const d = new Date(Number(ts));
-    return `<div class="note-modal-entry"><span class="nts">${d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span>${(entry.text||'').replace(/</g,'&lt;')}</div>`;
+    const dt = new Date(Number(ts));
+    return `<div class="note-modal-entry"><span class="nts">${dt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span>${(entry.text||'').replace(/</g,'&lt;')}</div>`;
   }).join('');
   document.getElementById('note-overlay').classList.add('show');
 }
