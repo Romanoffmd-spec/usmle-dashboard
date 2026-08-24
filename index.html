@@ -201,6 +201,20 @@
     padding:1px 4px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .cal-mins{font-family:var(--mono); font-size:10px; color:var(--ink-soft); display:block; margin-top:3px; clear:both;}
+  .cal-note-btn{
+    position:absolute; bottom:4px; right:5px; background:none; border:none; font-size:13px; cursor:pointer;
+    padding:0; line-height:1;
+  }
+
+  #note-overlay{
+    position:fixed; inset:0; background:rgba(23,50,47,.55); z-index:200; display:none;
+    align-items:center; justify-content:center; padding:20px;
+  }
+  #note-overlay.show{display:flex;}
+  .note-card{max-width:380px; text-align:left;}
+  .note-modal-date{font-family:var(--mono); font-size:12px; color:var(--teal); text-transform:uppercase; letter-spacing:.04em; margin-bottom:12px;}
+  .note-modal-entry{font-size:13.5px; line-height:1.5; margin-bottom:12px; white-space:pre-wrap;}
+  .note-modal-entry .nts{font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); margin-bottom:3px; display:block;}
 
   .log-form{display:flex; gap:8px; margin-bottom:16px;}
   .log-form textarea{
@@ -443,6 +457,14 @@
   </div>
 </div>
 
+<div id="note-overlay">
+  <div class="pomo-card note-card">
+    <div class="note-modal-date" id="note-modal-date"></div>
+    <div id="note-modal-body"></div>
+    <button class="btn" onclick="closeDayNote()">Закрыть</button>
+  </div>
+</div>
+
 
 <nav>
   <button data-view="dashboard" class="active">Обзор</button>
@@ -514,6 +536,13 @@
     <h1>Дневник сессий</h1>
     <p class="lede">Плавающий график — без фиксированных часов. Помодоро-сессии записываются сюда автоматически.</p>
 
+    <div class="log-form">
+      <textarea id="log-text" placeholder="Что хочешь отметить для себя сегодня? К чему вернуться, что было сложно, какие хайлайты дня…"></textarea>
+      <button class="btn" id="log-submit">Записать</button>
+    </div>
+    <div id="log-list"></div>
+
+    <div class="section-label">Календарь</div>
     <div class="cal-header">
       <button class="cal-nav" onclick="calNav(-1)">‹</button>
       <div class="cal-month-label" id="cal-month-label"></div>
@@ -523,13 +552,6 @@
       <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
-
-    <div class="section-label">Заметки</div>
-    <div class="log-form">
-      <textarea id="log-text" placeholder="Что прошёл сегодня? (например: Cardio patho + 40 UWorld вопросов, 62%)"></textarea>
-      <button class="btn" id="log-submit">Записать</button>
-    </div>
-    <div id="log-list"></div>
   </div>
 
 </main>
@@ -1410,13 +1432,32 @@ function renderCalendar(){
       `<span class="cal-chip">${name}${pct!==undefined && pct!==null ? ' '+pct+'%' : ''}</span>`
     ).join('');
     const minsLabel = totalMin ? `<span class="cal-mins">${totalMin} мин</span>` : '';
+    const hasNote = notesForDate(dateKey).length > 0;
+    const noteBtn = hasNote ? `<button class="cal-note-btn" onclick="openDayNote('${dateKey}')">📝</button>` : '';
     cells += `<div class="cal-day ${isToday?'today':''}">
       <span class="cal-daynum">${d}</span>
       ${chips}
       ${minsLabel}
+      ${noteBtn}
     </div>`;
   }
   grid.innerHTML = cells;
+}
+
+function notesForDate(dateKey){
+  return Object.entries(state.log || {}).filter(([ts]) => localDateKey(new Date(Number(ts))) === dateKey);
+}
+function openDayNote(dateKey){
+  const entries = notesForDate(dateKey).sort((a,b)=>a[0]-b[0]);
+  document.getElementById('note-modal-date').textContent = dateKey;
+  document.getElementById('note-modal-body').innerHTML = entries.map(([ts, entry])=>{
+    const d = new Date(Number(ts));
+    return `<div class="note-modal-entry"><span class="nts">${d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span>${(entry.text||'').replace(/</g,'&lt;')}</div>`;
+  }).join('');
+  document.getElementById('note-overlay').classList.add('show');
+}
+function closeDayNote(){
+  document.getElementById('note-overlay').classList.remove('show');
 }
 
 function renderLog(){
