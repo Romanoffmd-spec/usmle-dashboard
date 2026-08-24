@@ -63,6 +63,13 @@
   .key-widget.collapsed .key-status{cursor:pointer; padding:5px 8px; border:1px solid var(--line); border-radius:2px;}
   .key-widget:not(.collapsed) .key-status{display:none;}
 
+  .lang-toggle{display:inline-flex; border:1px solid var(--line); border-radius:14px; overflow:hidden;}
+  .lang-btn{
+    font-family:var(--mono); font-size:10.5px; padding:5px 10px; border:none; background:var(--paper);
+    color:var(--ink-soft); cursor:pointer;
+  }
+  .lang-btn.active{background:var(--teal); color:#fff;}
+
   nav{
     display:flex; gap:2px; padding:0 20px; background:var(--paper); border-bottom:1px solid var(--line);
     overflow-x:auto; flex:0 0 auto; z-index:19;
@@ -391,10 +398,10 @@
 <div id="login-screen">
   <div class="login-box">
     <div class="brand-mark">STEP<br>TRACKER</div>
-    <p class="lede">Вход только для тебя</p>
-    <input type="email" id="login-email" placeholder="email" autocomplete="username">
-    <input type="password" id="login-password" placeholder="пароль" autocomplete="current-password">
-    <button class="btn" id="login-submit">Войти</button>
+    <p class="lede" data-i18n="login_sub">Вход только для тебя</p>
+    <input type="email" id="login-email" data-i18n-placeholder="login_email" placeholder="email" autocomplete="username">
+    <input type="password" id="login-password" data-i18n-placeholder="login_password" placeholder="пароль" autocomplete="current-password">
+    <button class="btn" id="login-submit" data-i18n="login_btn">Войти</button>
     <div id="login-error"></div>
   </div>
 </div>
@@ -405,6 +412,10 @@
     <div class="brand-sub">USMLE Step 1 — First Aid 2025</div>
   </div>
   <div class="countdown">
+    <div class="lang-toggle" id="lang-toggle">
+      <button class="lang-btn" data-lang="ru" onclick="setLang('ru')">RU</button>
+      <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+    </div>
     <select id="llm-provider" style="font-family:var(--mono);font-size:11px;padding:5px 6px;border:1px solid var(--line);border-radius:2px;">
       <option value="gemini">Gemini (free)</option>
       <option value="claude">Claude</option>
@@ -413,8 +424,8 @@
       <input type="password" id="api-key-input" placeholder="API key" style="font-family:var(--mono);font-size:11px;padding:5px 8px;border:1px solid var(--line);border-radius:2px;width:130px;">
       <span class="key-status" id="key-status" onclick="expandKeyWidget()"><span class="key-dot" id="key-dot"></span><span id="key-status-text">No key</span></span>
     </span>
-    <span>Target: <input type="date" id="target-date"></span>
-    <span>Days left: <b id="days-left">—</b></span>
+    <span><span id="lbl-target">Target:</span> <input type="date" id="target-date"></span>
+    <span><span id="lbl-daysleft">Days left:</span> <b id="days-left">—</b></span>
   </div>
 </header>
 
@@ -470,8 +481,8 @@
       </g>
     </svg>
     <h2 id="pomo-msg-title">Well done!</h2>
-    <p id="pomo-msg-sub">Сессия завершена — самое время отметить, что прошёл.</p>
-    <button class="btn" onclick="pomoCloseOverlay()">Продолжить</button>
+    <p id="pomo-msg-sub" data-i18n="pomo_msg_sub">Сессия завершена — самое время отметить, что прошёл.</p>
+    <button class="btn" onclick="pomoCloseOverlay()" data-i18n="pomo_continue">Продолжить</button>
   </div>
 </div>
 
@@ -479,31 +490,31 @@
   <div class="pomo-card note-card">
     <div class="note-modal-date" id="note-modal-date"></div>
     <div class="note-modal-body" id="note-modal-body"></div>
-    <button class="btn" onclick="closeDayNote()">Закрыть</button>
+    <button class="btn" onclick="closeDayNote()" data-i18n="note_close">Закрыть</button>
   </div>
 </div>
 
 
 <nav>
-  <button data-view="dashboard" class="active">Обзор</button>
-  <button data-view="modules">Темы</button>
-  <button data-view="weak">Слабые места</button>
-  <button data-view="log">Дневник</button>
+  <button data-view="dashboard" class="active" data-i18n="nav_dashboard">Обзор</button>
+  <button data-view="modules" data-i18n="nav_modules">Темы</button>
+  <button data-view="weak" data-i18n="nav_weak">Слабые места</button>
+  <button data-view="log" data-i18n="nav_log">Дневник</button>
 </nav>
 
 <main>
 
   <!-- DASHBOARD -->
   <div class="view active" id="view-dashboard">
-    <h1>Обзор прогресса</h1>
+    <h1 data-i18n="dash_title">Обзор прогресса</h1>
     <div class="block-selector-row">
-      <span class="lede-inline">Плавающий график</span>
+      <span class="lede-inline" data-i18n="floating_schedule">Плавающий график</span>
       <div class="block-selector">
-        <button class="block-selector-btn" onclick="toggleBlockSelector()">Блоки: <span id="block-count-label">17/17</span> ▾</button>
+        <button class="block-selector-btn" onclick="toggleBlockSelector()"><span data-i18n="blocks_label">Блоки</span>: <span id="block-count-label">17/17</span> ▾</button>
         <div class="block-selector-panel" id="block-selector-panel">
           <label class="block-selector-item all-item">
             <input type="checkbox" id="block-select-all" onchange="toggleAllBlocks(this.checked)">
-            <span>Все</span>
+            <span data-i18n="all_label">Все</span>
           </label>
           <div id="block-selector-list"></div>
         </div>
@@ -511,10 +522,10 @@
     </div>
 
     <div class="grid-overview">
-      <div class="stat"><div class="num" id="stat-overall">0%</div><div class="label">Общий прогресс</div></div>
-      <div class="stat"><div class="num" id="stat-done">0</div><div class="label">Тем закрыто</div></div>
-      <div class="stat"><div class="num" id="stat-weak">0</div><div class="label">Слабых мест</div></div>
-      <div class="stat"><div class="num" id="stat-pace">—</div><div class="label">Тем / неделю нужно</div></div>
+      <div class="stat"><div class="num" id="stat-overall">0%</div><div class="label" data-i18n="stat_overall">Общий прогресс</div></div>
+      <div class="stat"><div class="num" id="stat-done">0</div><div class="label" data-i18n="stat_done">Тем закрыто</div></div>
+      <div class="stat"><div class="num" id="stat-weak">0</div><div class="label" data-i18n="stat_weak">Слабых мест</div></div>
+      <div class="stat"><div class="num" id="stat-pace">—</div><div class="label" data-i18n="stat_pace">Тем / неделю нужно</div></div>
     </div>
 
     <div class="section-label">General Principles</div>
@@ -523,20 +534,20 @@
     <div class="section-label">Organ Systems</div>
     <div class="module-grid" id="grid-organ"></div>
 
-    <div class="section-label">Финал</div>
+    <div class="section-label" data-i18n="sec_final">Финал</div>
     <div class="module-grid" id="grid-final"></div>
   </div>
 
   <!-- MODULES LIST / DETAIL -->
   <div class="view" id="view-modules">
     <div id="modules-list">
-      <h1>Все темы</h1>
-      <p class="lede">Кликни по блоку, чтобы отметить прогресс и уверенность по каждой подтеме</p>
+      <h1 data-i18n="modules_title">Все темы</h1>
+      <p class="lede" data-i18n="modules_lede">Кликни по блоку, чтобы отметить прогресс и уверенность по каждой подтеме</p>
       <div class="section-label">General Principles</div>
       <div class="module-grid" id="mgrid-general"></div>
       <div class="section-label">Organ Systems</div>
       <div class="module-grid" id="mgrid-organ"></div>
-      <div class="section-label">Финал</div>
+      <div class="section-label" data-i18n="sec_final">Финал</div>
       <div class="module-grid" id="mgrid-final"></div>
     </div>
     <div id="module-detail" style="display:none;"></div>
@@ -544,33 +555,33 @@
 
   <!-- WEAK SPOTS -->
   <div class="view" id="view-weak">
-    <h1>Слабые места</h1>
-    <p class="lede">Автоматически: всё с уверенностью 1–2. Плюс всё, что ты добавил вручную из UWorld/NBME.</p>
+    <h1 data-i18n="weak_title">Слабые места</h1>
+    <p class="lede" data-i18n="weak_lede">Автоматически: всё с уверенностью 1–2. Плюс всё, что ты добавил вручную из UWorld/NBME.</p>
     <div id="weak-list"></div>
   </div>
 
   <!-- LOG -->
   <div class="view" id="view-log">
-    <h1>Дневник сессий</h1>
-    <p class="lede">Плавающий график — без фиксированных часов. Помодоро-сессии записываются сюда автоматически.</p>
+    <h1 data-i18n="log_title">Дневник сессий</h1>
+    <p class="lede" data-i18n="log_lede">Плавающий график — без фиксированных часов. Помодоро-сессии записываются сюда автоматически.</p>
 
     <div class="log-form">
-      <textarea id="log-text" placeholder="Что хочешь отметить для себя сегодня? К чему вернуться, что было сложно, какие хайлайты дня…"></textarea>
-      <button class="btn" id="log-submit">Записать</button>
+      <textarea id="log-text" data-i18n-placeholder="log_placeholder" placeholder="Что хочешь отметить для себя сегодня? К чему вернуться, что было сложно, какие хайлайты дня…"></textarea>
+      <button class="btn" id="log-submit" data-i18n="log_submit">Записать</button>
     </div>
 
-    <div class="section-label">Календарь</div>
+    <div class="section-label" data-i18n="cal_label">Календарь</div>
     <div class="cal-header">
       <button class="cal-nav" onclick="calNav(-1)">‹</button>
       <div class="cal-month-label" id="cal-month-label"></div>
       <button class="cal-nav" onclick="calNav(1)">›</button>
     </div>
-    <div class="cal-weekdays">
+    <div class="cal-weekdays" id="cal-weekdays">
       <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
 
-    <div class="section-label">Все записи</div>
+    <div class="section-label" data-i18n="notes_label">Все записи</div>
     <div id="log-list"></div>
   </div>
 
@@ -598,6 +609,94 @@ const ROOT = 'usmleTutor';
 /* ---------- DATA MODEL ---------- */
 // Standard First Aid 2025 breakdown. Each module = section-level topic.
 // Subtopics are the well-known internal groupings First Aid uses within each chapter.
+/* ---------- I18N ---------- */
+const LANG = {
+  ru: {
+    nav_dashboard:'Обзор', nav_modules:'Темы', nav_weak:'Слабые места', nav_log:'Дневник',
+    dash_title:'Обзор прогресса', floating_schedule:'Плавающий график', blocks_label:'Блоки', all_label:'Все',
+    stat_overall:'Общий прогресс', stat_done:'Тем закрыто', stat_weak:'Слабых мест', stat_pace:'Тем / неделю нужно',
+    sec_final:'Финал',
+    modules_title:'Все темы', modules_lede:'Кликни по блоку, чтобы отметить прогресс и уверенность по каждой подтеме',
+    weak_title:'Слабые места', weak_lede:'Автоматически: всё с уверенностью 1–2. Плюс всё, что ты добавил вручную из UWorld/NBME.',
+    log_title:'Дневник сессий', log_lede:'Плавающий график — без фиксированных часов. Помодоро-сессии записываются сюда автоматически.',
+    log_placeholder:'Что хочешь отметить для себя сегодня? К чему вернуться, что было сложно, какие хайлайты дня…',
+    log_submit:'Записать', cal_label:'Календарь', notes_label:'Все записи',
+    login_sub:'Вход только для тебя', login_email:'email', login_password:'пароль', login_btn:'Войти',
+    pomo_continue:'Продолжить', note_close:'Закрыть', pomo_msg_sub:'Сессия завершена — самое время отметить, что прошёл.',
+    target_label:'Target:', days_left_label:'Days left:',
+    done_word:'готово', back_link:'← ко всем темам', add_placeholder:'Добавить тему из UWorld/NBME (например: Long QT drugs)',
+    add_btn:'Добавить', confidence_label:'уверенность:', note_input_placeholder:'заметка / из какого UWorld блока',
+    lecture_btn:'📖 Лекция', tutor_mode:'🎓 Тьютор мод', tutor_tab:'Тьютор', quiz_tab:'Квиз',
+    tutor_empty:'Спроси про механизм, попроси разобрать кейс, или задай вопрос по теме.',
+    quiz_empty:'Нажми "Начать кейс" — тьютор даст вводные и будет поэтапно выдавать данные по запросу, как на реальном разборе.',
+    start_case:'Начать кейс', new_case:'Новый кейс', finish_case:'Завершить и разобрать',
+    key_hint:'Нужен API-ключ выбранного провайдера (вверху страницы). Ключ хранится только в этом браузере.',
+    weak_empty:'Пока нет отмеченных слабых мест. Ставь уверенность 1–2 у тем, которые даются тяжело — они появятся здесь автоматически.',
+    weak_open:'Открыть →', log_empty:'Пока пусто. Запиши первую сессию выше.', min_label:'мин',
+    weekdays:['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],
+    months:['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
+    locale:'ru-RU',
+    ai_instruction:'Отвечай ТОЛЬКО на русском языке (медицинские термины можно оставлять на английском, как принято).',
+    tutor_placeholders:['Объясни механизм шума при MVP','Почему при АВ-блоке падает CO?','В чём разница preload и afterload?','Как работает петля Франка-Старлинга?','Почему при шоке растёт ЧСС?','Разбери формулу Pulse Pressure','Что вызывает S3 тон?','Как отличить типы блокад на ЭКГ?'],
+    quiz_placeholders:['Какие лабораторные показатели?','Хочу физикальный осмотр','Нужна ЭКГ','Какой план дальше?','Хочу визуализацию (УЗИ/КТ)','Уточни витальные показатели','Мой диагноз: …','Что дальше в ведении пациента?'],
+  },
+  en: {
+    nav_dashboard:'Overview', nav_modules:'Topics', nav_weak:'Weak Spots', nav_log:'Diary',
+    dash_title:'Progress Overview', floating_schedule:'Floating schedule', blocks_label:'Blocks', all_label:'All',
+    stat_overall:'Overall progress', stat_done:'Topics done', stat_weak:'Weak spots', stat_pace:'Topics / week needed',
+    sec_final:'Final',
+    modules_title:'All Topics', modules_lede:'Tap a block to track progress and confidence for each subtopic',
+    weak_title:'Weak Spots', weak_lede:'Automatic: anything rated confidence 1–2. Plus anything you flagged manually from UWorld/NBME.',
+    log_title:'Study Diary', log_lede:'Floating schedule — no fixed hours. Pomodoro sessions log here automatically.',
+    log_placeholder:'What do you want to note for yourself today? What to revisit, what was hard, today\'s highlights…',
+    log_submit:'Save', cal_label:'Calendar', notes_label:'All Notes',
+    login_sub:'Sign-in for you only', login_email:'email', login_password:'password', login_btn:'Sign in',
+    pomo_continue:'Continue', note_close:'Close', pomo_msg_sub:'Session complete — good time to log what you covered.',
+    target_label:'Target:', days_left_label:'Days left:',
+    done_word:'done', back_link:'← back to all topics', add_placeholder:'Add a topic from UWorld/NBME (e.g. Long QT drugs)',
+    add_btn:'Add', confidence_label:'confidence:', note_input_placeholder:'note / which UWorld block',
+    lecture_btn:'📖 Lecture', tutor_mode:'🎓 Tutor Mode', tutor_tab:'Tutor', quiz_tab:'Quiz',
+    tutor_empty:'Ask about a mechanism, request a case breakdown, or ask anything about this topic.',
+    quiz_empty:'Tap "Start Case" — the tutor will give you the opener and reveal data step by step, like a real oral exam.',
+    start_case:'Start Case', new_case:'New Case', finish_case:'Finish & Debrief',
+    key_hint:'Needs an API key for the selected provider (top of the page). The key is stored only in this browser.',
+    weak_empty:'No weak spots flagged yet. Rate confidence 1–2 on topics that feel shaky — they\'ll show up here automatically.',
+    weak_open:'Open →', log_empty:'Nothing yet. Log your first session above.', min_label:'min',
+    weekdays:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    months:['January','February','March','April','May','June','July','August','September','October','November','December'],
+    locale:'en-US',
+    ai_instruction:'Respond ONLY in English (medical terminology stays in English as usual).',
+    tutor_placeholders:['Explain the murmur mechanism in MVP','Why does CO drop in AV block?','What\'s the difference between preload and afterload?','How does the Frank-Starling curve work?','Why does HR rise in shock?','Break down the Pulse Pressure formula','What causes an S3 heart sound?','How do I tell heart block types apart on ECG?'],
+    quiz_placeholders:['What labs do you want?','I want a physical exam','I want an ECG','What\'s the next step?','I want imaging (US/CT)','Clarify the vitals','My diagnosis is: …','What\'s next in management?'],
+  }
+};
+let uiLang = localStorage.getItem('usmleTutorLang') || 'ru';
+function t(key){ return (LANG[uiLang] && LANG[uiLang][key]) || (LANG.ru[key]) || key; }
+function applyStaticLanguage(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+  });
+  const lblTarget = document.getElementById('lbl-target');
+  const lblDays = document.getElementById('lbl-daysleft');
+  if(lblTarget) lblTarget.textContent = t('target_label');
+  if(lblDays) lblDays.textContent = t('days_left_label');
+  const calWd = document.getElementById('cal-weekdays');
+  if(calWd) calWd.innerHTML = t('weekdays').map(d=>`<span>${d}</span>`).join('');
+  document.querySelectorAll('.lang-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.lang === uiLang);
+  });
+  document.documentElement.lang = uiLang;
+}
+function setLang(lang){
+  uiLang = lang;
+  localStorage.setItem('usmleTutorLang', lang);
+  applyStaticLanguage();
+  renderAll();
+}
+
 const MODULES = [
   {id:'gp-biochem', cat:'general', name:'Biochemistry', subs:[
     'Chromatin & DNA Structure','DNA Replication & Repair','Transcription & RNA Processing','Translation & Protein Synthesis',
@@ -735,7 +834,22 @@ function saveLocal(){
 loadLocal();
 
 /* ---------- POMODORO ---------- */
-const POMO_PHRASES = [
+const POMO_PHRASES_RU = [
+  "Отлично сделано!","Почти у цели!","Ты молодец!","Хорошая сессия фокуса!","Держи темп!",
+  "Крепкая работа!","Мозг говорит спасибо.","Ещё на шаг ближе к Step 1.","Это прогресс, а не просто время.",
+  "Ты пришёл и сделал — это уже победа.","Отличная дисциплина!","Маленькие сессии дают большой результат.","Сфокусирован и неудержим.",
+  "Ты заслужил этот перерыв.","Красота!","Постоянство побеждает.","Вот так и приходит мастерство.","Так держать!",
+  "Ещё один блок позади!","Будущий ты говорит спасибо.","Фокус потрачен не зря.","Ты строишь настоящие знания.",
+  "Вот так и надо.","Импульс на твоей стороне.","Сессия завершена — красота.","Ты копишь победы.",
+  "Отличное использование времени.","Горжусь этим фокусом.","Держи этот темп, у тебя получится.","Глубокая работа, сделана правильно.",
+  "Ты ближе, чем вчера.","Вот это дисциплина.","Крепкий подход в копилку.","Твои будущие пациенты благодарны.",
+  "Отличная сессия!","Ты на верном пути.","Это настоящий прогресс.","Заслуженный перерыв.","Отличный настрой!",
+  "Ты показал настоящий фокус.","Привычка строится по сессии за раз.","Вот такая дисциплина сдаёт экзамены.",
+  "Хорошо — переведи дух.","Ты делаешь то, что действительно важно.","Сессия завершена, гордись собой.",
+  "Ты ближе к дню экзамена.","Крепкий блок.","Копи такие сессии дальше.","Ты растёшь над собой.",
+  "Пять минут — ты их заслужил."
+];
+const POMO_PHRASES_EN = [
   "Well done!","Almost there!","You are doing good!","Nice focus session!","Keep that momentum going!",
   "Solid work!","Your brain thanks you.","One step closer to Step 1.","That's progress, not just time.",
   "You showed up — that counts.","Great discipline!","Small sessions build big results.","Focused and unstoppable.",
@@ -863,7 +977,8 @@ function pomoComplete(){
   localStorage.removeItem('pomoDurationSec');
   updatePomoDigits();
   playPomoSound();
-  const phrase = POMO_PHRASES[Math.floor(Math.random()*POMO_PHRASES.length)];
+  const phraseSet = uiLang === 'ru' ? POMO_PHRASES_RU : POMO_PHRASES_EN;
+  const phrase = phraseSet[Math.floor(Math.random()*phraseSet.length)];
   document.getElementById('pomo-msg-title').textContent = phrase;
   document.getElementById('pomo-overlay').classList.add('show');
 }
@@ -1083,50 +1198,30 @@ function toggleTutor(){
   if(panel) panel.classList.toggle('open', tutorOpen);
   document.body.classList.toggle('tutor-sheet-open', tutorOpen);
 }
-const TUTOR_PLACEHOLDERS = [
-  "Объясни механизм шума при MVP",
-  "Почему при АВ-блоке падает CO?",
-  "В чём разница preload и afterload?",
-  "Как работает петля Франка-Старлинга?",
-  "Почему при шоке растёт ЧСС?",
-  "Разбери формулу Pulse Pressure",
-  "Что вызывает S3 тон?",
-  "Как отличить типы блокад на ЭКГ?"
-];
-const QUIZ_PLACEHOLDERS = [
-  "Какие лабораторные показатели?",
-  "Хочу физикальный осмотр",
-  "Нужна ЭКГ",
-  "Какой план дальше?",
-  "Хочу визуализацию (УЗИ/КТ)",
-  "Уточни витальные показатели",
-  "Мой диагноз: …",
-  "Что дальше в ведении пациента?"
-];
 function renderTutorPanel(mod){
   const isQuiz = panelTab === 'quiz';
   const chats = isQuiz ? quizChats : tutorChats;
   const msgs = (chats[mod.id] || []).filter(m => m.role !== 'system-hidden');
   const bubbles = msgs.map(m=>`<div class="tutor-msg ${m.role}">${escapeHtml(m.content)}</div>`).join('');
   const emptyHint = isQuiz
-    ? '<div class="tutor-hint">Нажми "Начать кейс" — тьютор даст вводные и будет поэтапно выдавать данные по запросу, как на реальном разборе.</div>'
-    : '<div class="tutor-hint">Спроси про механизм, попроси разобрать кейс, или задай вопрос по теме.</div>';
+    ? `<div class="tutor-hint">${t('quiz_empty')}</div>`
+    : `<div class="tutor-hint">${t('tutor_empty')}</div>`;
   const quizControls = isQuiz ? `<div class="quiz-controls">
-      <button class="btn ghost" onclick="startQuizCase('${mod.id}')">${msgs.length ? 'Новый кейс' : 'Начать кейс'}</button>
-      ${msgs.length ? `<button class="btn ghost" onclick="finishQuizCase('${mod.id}')">Завершить и разобрать</button>` : ''}
+      <button class="btn ghost" onclick="startQuizCase('${mod.id}')">${msgs.length ? t('new_case') : t('start_case')}</button>
+      ${msgs.length ? `<button class="btn ghost" onclick="finishQuizCase('${mod.id}')">${t('finish_case')}</button>` : ''}
     </div>` : '';
-  const placeholderSet = isQuiz ? QUIZ_PLACEHOLDERS : TUTOR_PLACEHOLDERS;
+  const placeholderSet = isQuiz ? t('quiz_placeholders') : t('tutor_placeholders');
   const placeholder = placeholderSet[Math.floor(Math.random()*placeholderSet.length)];
   return `<div class="tutor-panel ${tutorOpen?'open':''}" id="tutor-panel">
     <div class="tutor-toggle-bar" onclick="toggleTutor()">
-      <span>🎓 Тьютор мод</span>
+      <span>${t('tutor_mode')}</span>
       <span class="chev">▲</span>
     </div>
     <div class="tutor-body">
       <div class="tutor-topic-label">${mod.name}</div>
       <div class="tutor-tabs">
-        <div class="tutor-tab ${!isQuiz?'active':''}" onclick="event.stopPropagation(); switchPanelTab('tutor')">Тьютор</div>
-        <div class="tutor-tab ${isQuiz?'active':''}" onclick="event.stopPropagation(); switchPanelTab('quiz')">Квиз</div>
+        <div class="tutor-tab ${!isQuiz?'active':''}" onclick="event.stopPropagation(); switchPanelTab('tutor')">${t('tutor_tab')}</div>
+        <div class="tutor-tab ${isQuiz?'active':''}" onclick="event.stopPropagation(); switchPanelTab('quiz')">${t('quiz_tab')}</div>
       </div>
       ${quizControls}
       <div class="tutor-messages" id="tutor-msgs-${mod.id}">${bubbles || emptyHint}</div>
@@ -1134,7 +1229,7 @@ function renderTutorPanel(mod){
         <textarea id="tutor-input-${mod.id}" placeholder="${placeholder}"></textarea>
         <button class="btn" onclick="${isQuiz ? `sendQuizMessage('${mod.id}')` : `sendTutorMessage('${mod.id}')`}">→</button>
       </div>
-      <div class="tutor-hint">Нужен API-ключ выбранного провайдера (вверху страницы). Ключ хранится только в этом браузере.</div>
+      <div class="tutor-hint">${t('key_hint')}</div>
     </div>
   </div>`;
 }
@@ -1214,7 +1309,7 @@ async function sendTutorText(modId, text){
   saveTutorChats();
 
   const subjectList = mod.subs.join(', ');
-  const systemPrompt = `Ты — тьютор для подготовки к USMLE Step 1, помогаешь ординатору общей хирургии (PGY-2). Сейчас он проходит блок "${mod.name}" (подтемы: ${subjectList}). Объясняй механизмы своими словами, на уровне First Aid, но НИКОГДА не копируй текст учебников дословно. Поощряй активное вспоминание: если уместно, спроси его встречный вопрос вместо готового ответа. Отвечай кратко и по делу, форматируй для мобильного экрана. Отвечай на языке вопроса (обычно русский с медицинскими терминами на английском).
+  const systemPrompt = `Ты — тьютор для подготовки к USMLE Step 1, помогаешь ординатору общей хирургии (PGY-2). Сейчас он проходит блок "${mod.name}" (подтемы: ${subjectList}). Объясняй механизмы своими словами, на уровне First Aid, но НИКОГДА не копируй текст учебников дословно. Поощряй активное вспоминание: если уместно, спроси его встречный вопрос вместо готового ответа. Отвечай кратко и по делу, форматируй для мобильного экрана. ${t('ai_instruction')}
 
 ФОРМАТИРОВАНИЕ (строго): пиши обычным разговорным текстом, как будто объясняешь вслух коллеге. НЕ используй markdown-разметку — никаких ### заголовков, **жирного текста** со звёздочками, LaTeX-формул ($$...$$), горизонтальных линий (---), нумерованных списков с точками через звёздочку. Если нужно перечислить несколько пунктов — пиши их как обычные предложения через тире или просто абзацами. Формулы записывай словами или простыми обозначениями (например "SV / compliance", а не LaTeX-дробь).`;
   await callClaude(modId, tutorChats, saveTutorChats, systemPrompt);
@@ -1233,7 +1328,9 @@ async function requestLecture(modId, label){
   const panel = document.getElementById('tutor-panel');
   if(panel) panel.classList.add('open');
   document.body.classList.add('tutor-sheet-open');
-  const text = `Дай мини-лекцию по теме «${label}» в рамках этого блока — структурированно объясни ключевые механизмы, факты и клинические связи на уровне First Aid, своими словами, без дословного цитирования учебников. В конце — 1-2 вопроса на активное вспоминание.`;
+  const text = uiLang === 'ru'
+    ? `Дай мини-лекцию по теме «${label}» в рамках этого блока — структурированно объясни ключевые механизмы, факты и клинические связи на уровне First Aid, своими словами, без дословного цитирования учебников. В конце — 1-2 вопроса на активное вспоминание.`
+    : `Give me a mini-lecture on "${label}" within this block — structured explanation of the key mechanisms, facts, and clinical correlations at First Aid level, in your own words, no verbatim textbook quoting. End with 1-2 active recall questions.`;
   await sendTutorText(modId, text);
 }
 
@@ -1246,13 +1343,13 @@ function quizSystemPrompt(mod){
 2. Дальше пользователь будет запрашивать конкретные данные. Выдавай СТРОГО то, что запрошено, не больше. Если какие-то данные заранее не были определены в твоём внутреннем плане кейса — придумай их правдоподобно на лету, оставаясь строго согласованным с уже выданной информацией и вероятным диагнозом; никогда не противоречь тому, что уже сообщил ранее в этом же диалоге.
 3. Если пользователь предлагает диагноз, механизм или план лечения — не подтверждай сразу. Спроси "почему ты так думаешь" или на основании чего, затем дай честную обратную связь.
 4. Когда пользователь просит завершить кейс — дай финальный структурированный разбор: 1) какой был реальный диагноз и патогенез (своими словами, НИКОГДА дословно из учебников), 2) какие из запрошенных им исследований были реально необходимы, какие избыточны, 3) сошлись на конкретные официальные гайдлайны/протоколы там, где уместно (например ACC/AHA, IDSA, ATLS, Surviving Sepsis Campaign, USPSTF, NCCN) и коротко объясни их логику — без дословного цитирования текста гайдлайнов.
-5. Отвечай кратко и структурированно, форматируй под мобильный экран. Язык — русский, медицинские термины можно на английском как принято.
+5. Отвечай кратко и структурированно, форматируй под мобильный экран. ${t('ai_instruction')}
 
 ФОРМАТИРОВАНИЕ (строго): пиши обычным разговорным текстом, как живой диалог, а не документ. НЕ используй markdown — никаких ### заголовков, **звёздочек** для жирного, LaTeX-формул ($$...$$), горизонтальных линий (---). Списки — обычными предложениями через тире или абзацами, без нумерации точками-звёздочками.`;
 }
 async function startQuizCase(modId){
   const mod = MODULES.find(m=>m.id===modId);
-  quizChats[modId] = [{role:'system-hidden', content:'Начни новый кейс по этой теме.'}];
+  quizChats[modId] = [{role:'system-hidden', content: uiLang === 'ru' ? 'Начни новый кейс по этой теме.' : 'Start a new case on this topic.'}];
   saveQuizChats();
   await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
 }
@@ -1364,7 +1461,7 @@ function moduleCard(mod){
   return `<div class="module-card" onclick="openModule('${mod.id}')">
     <div class="mname">${mod.name}</div>
     <div class="ticks">${renderTicks(mod)}</div>
-    <div class="mmeta"><span>${stats.done}/${stats.total} готово</span><span>${stats.pct}%</span></div>
+    <div class="mmeta"><span>${stats.done}/${stats.total} ${t('done_word')}</span><span>${stats.pct}%</span></div>
   </div>`;
 }
 function renderGrids(prefix){
@@ -1431,10 +1528,10 @@ function renderModuleDetail(){
       <div class="item-body">
         <div class="item-name ${st.checked?'done':''}" style="cursor:pointer;" onclick="document.getElementById('chk-${mod.id}-${s.subId}').click()">${s.label}</div>
         <div class="item-controls">
-          <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);">уверенность:</span>
+          <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);">${t('confidence_label')}</span>
           <div class="conf-btns">${confBtns}</div>
-          <button class="lecture-btn" onclick="requestLecture('${mod.id}','${labelEsc}')">📖 Лекция</button>
-          <input class="note-input" placeholder="заметка / из какого UWorld блока" value="${(st.note||'').replace(/"/g,'&quot;')}" onblur="setItemState('${mod.id}','${s.subId}',{note:this.value})">
+          <button class="lecture-btn" onclick="requestLecture('${mod.id}','${labelEsc}')">${t('lecture_btn')}</button>
+          <input class="note-input" placeholder="${t('note_input_placeholder')}" value="${(st.note||'').replace(/"/g,'&quot;')}" onblur="setItemState('${mod.id}','${s.subId}',{note:this.value})">
           ${delBtn}
         </div>
       </div>
@@ -1442,13 +1539,13 @@ function renderModuleDetail(){
   }).join('');
 
   document.getElementById('module-detail').innerHTML = `
-    <div class="back-link" onclick="closeModule()">← ко всем темам</div>
+    <div class="back-link" onclick="closeModule()">${t('back_link')}</div>
     <div class="module-detail-inner module-detail">
       <h1>${mod.name}</h1>
       ${rows}
       <div class="add-row">
-        <input id="custom-input-${mod.id}" placeholder="Добавить тему из UWorld/NBME (например: Long QT drugs)">
-        <button class="btn" onclick="addCustom('${mod.id}')">Добавить</button>
+        <input id="custom-input-${mod.id}" placeholder="${t('add_placeholder')}">
+        <button class="btn" onclick="addCustom('${mod.id}')">${t('add_btn')}</button>
       </div>
     </div>
     ${renderTutorPanel(mod)}`;
@@ -1489,7 +1586,7 @@ function renderWeak(){
   });
   const list = document.getElementById('weak-list');
   if(!items.length){
-    list.innerHTML = '<div class="empty">Пока нет отмеченных слабых мест. Ставь уверенность 1–2 у тем, которые даются тяжело — они появятся здесь автоматически.</div>';
+    list.innerHTML = `<div class="empty">${t('weak_empty')}</div>`;
     return;
   }
   list.innerHTML = items.map(it=>`
@@ -1498,7 +1595,7 @@ function renderWeak(){
         <div class="wtitle">${it.label}</div>
         <div class="wmod">${it.mod.name}${it.note? ' · '+it.note : ''}</div>
       </div>
-      <div class="jump" onclick="openModule('${it.mod.id}')">Открыть →</div>
+      <div class="jump" onclick="openModule('${it.mod.id}')">${t('weak_open')}</div>
     </div>`).join('');
 }
 
@@ -1528,14 +1625,13 @@ function calNav(delta){
   calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth()+delta, 1);
   renderCalendar();
 }
-const RU_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 function renderCalendar(){
   const grid = document.getElementById('cal-grid');
   const label = document.getElementById('cal-month-label');
   if(!grid || !label) return;
   const year = calendarViewDate.getFullYear();
   const month = calendarViewDate.getMonth();
-  label.textContent = RU_MONTHS[month] + ' ' + year;
+  label.textContent = t('months')[month] + ' ' + year;
 
   const firstDay = new Date(year, month, 1);
   const startOffset = (firstDay.getDay() + 6) % 7; // Monday-first
@@ -1561,7 +1657,7 @@ function renderCalendar(){
     const chips = Object.entries(topicMap).slice(0,2).map(([name,pct])=>
       `<span class="cal-chip">${name}${pct!==undefined && pct!==null ? ' '+pct+'%' : ''}</span>`
     ).join('');
-    const minsLabel = totalMin ? `<span class="cal-mins">${totalMin} мин</span>` : '';
+    const minsLabel = totalMin ? `<span class="cal-mins">${totalMin} ${t('min_label')}</span>` : '';
     const hasNote = notesForDate(dateKey).length > 0;
     const noteBtn = hasNote ? `<button class="cal-note-btn" onclick="openDayNote('${dateKey}')">📝</button>` : '';
     cells += `<div class="cal-day ${isToday?'today':''}">
@@ -1581,10 +1677,10 @@ function openDayNote(dateKey){
   const entries = notesForDate(dateKey).sort((a,b)=>a[0]-b[0]);
   const [y,m,d] = dateKey.split('-').map(Number);
   const dateObj = new Date(y, m-1, d);
-  document.getElementById('note-modal-date').textContent = dateObj.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('note-modal-date').textContent = dateObj.toLocaleDateString(t('locale'),{day:'numeric',month:'long',year:'numeric'});
   document.getElementById('note-modal-body').innerHTML = entries.map(([ts, entry])=>{
     const dt = new Date(Number(ts));
-    return `<div class="note-modal-entry"><span class="nts">${dt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span>${(entry.text||'').replace(/</g,'&lt;')}</div>`;
+    return `<div class="note-modal-entry"><span class="nts">${dt.toLocaleTimeString(t('locale'),{hour:'2-digit',minute:'2-digit'})}</span>${(entry.text||'').replace(/</g,'&lt;')}</div>`;
   }).join('');
   document.getElementById('note-overlay').classList.add('show');
 }
@@ -1596,12 +1692,12 @@ function renderLog(){
   const entries = Object.entries(state.log || {}).sort((a,b)=>b[0]-a[0]);
   const list = document.getElementById('log-list');
   if(!entries.length){
-    list.innerHTML = '<div class="empty">Пока пусто. Запиши первую сессию выше.</div>';
+    list.innerHTML = `<div class="empty">${t('log_empty')}</div>`;
     return;
   }
   list.innerHTML = entries.map(([ts, entry])=>{
     const d = new Date(Number(ts));
-    return `<div class="log-entry"><div class="ts">${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>${(entry.text||'').replace(/</g,'&lt;')}</div>`;
+    return `<div class="log-entry"><div class="ts">${d.toLocaleDateString(t('locale'))} ${d.toLocaleTimeString(t('locale'),{hour:'2-digit',minute:'2-digit'})}</div>${(entry.text||'').replace(/</g,'&lt;')}</div>`;
   }).join('');
 }
 document.getElementById('log-submit').addEventListener('click', ()=>{
@@ -1650,6 +1746,7 @@ function renderAll(){
   renderLog();
   if(currentModuleId) renderModuleDetail();
 }
+applyStaticLanguage();
 renderAll();
 </script>
 </body>
