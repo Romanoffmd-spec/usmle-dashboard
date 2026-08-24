@@ -1145,20 +1145,54 @@ async function generateSource(){
     const parsed = JSON.parse(jsonMatch[0]);
     if(!Array.isArray(parsed) || !parsed.length) throw new Error(uiLang==='ru' ? 'Пустая структура' : 'Empty structure');
 
+    function parseAiPages(raw){
+      if(typeof raw === 'string'){
+        const pm = raw.match(/(\d+)\s*[-–—]\s*(\d+)/);
+        if(pm) return {from: parseInt(pm[1],10), to: parseInt(pm[2],10)};
+      } else if(raw && typeof raw === 'object'){
+        const from = raw.from ?? raw.start;
+        const to = raw.to ?? raw.end;
+        if(from!=null && to!=null) return {from: parseInt(from,10), to: parseInt(to,10)};
+      }
+      return null;
+    }
+    // deterministic fallback: locate module name/subtopics directly in the [PAGE N]-marked
+    // source text, rather than trusting the model to fill an easily-dropped optional field
+    const pageMarkers = [];
+    if(pdfFile){
+      const markerRe = /\[PAGE (\d+)\]/g;
+      let mm;
+      while((mm = markerRe.exec(text))){ pageMarkers.push({index: mm.index, page: parseInt(mm[1],10)}); }
+    }
+    function pageAtIndex(idx){
+      let result = pageMarkers.length ? pageMarkers[0].page : null;
+      for(const mk of pageMarkers){ if(mk.index<=idx) result=mk.page; else break; }
+      return result;
+    }
+    function inferPagesFromText(moduleName, subs){
+      if(!pageMarkers.length) return null;
+      const lowerText = text.toLowerCase();
+      const phrases = [moduleName, ...(subs||[])].filter(Boolean);
+      const found = [];
+      phrases.forEach(p=>{
+        const idx = lowerText.indexOf(p.toLowerCase());
+        if(idx !== -1) found.push(pageAtIndex(idx));
+      });
+      if(!found.length) return null;
+      return {from: Math.min(...found), to: Math.max(...found)};
+    }
+
     const sourceId = slugify(name);
     const modules = parsed.map((m, i)=>{
       const moduleName = (m.name||'Module '+(i+1)).toString();
       const catRaw = (m.cat||'').toString().trim();
-      let pages = null;
-      if(typeof m.pages === 'string'){
-        const pm = m.pages.match(/(\d+)\s*-\s*(\d+)/);
-        if(pm) pages = {from: parseInt(pm[1],10), to: parseInt(pm[2],10)};
-      }
+      const subs = Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : [];
+      const pages = parseAiPages(m.pages) || inferPagesFromText(moduleName, subs);
       return {
         id: sourceId+'_m'+i,
         cat: catRaw || (uiLang==='ru' ? 'Темы' : 'Topics'),
         name: moduleName,
-        subs: Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : [],
+        subs,
         pages
       };
     });
