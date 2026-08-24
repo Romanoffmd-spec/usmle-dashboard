@@ -244,6 +244,29 @@
   }
   .note-modal-entry .nts{font-family:var(--mono); font-size:10.5px; color:var(--teal); margin-bottom:5px; display:block; font-weight:600;}
 
+  #reader-overlay{
+    position:fixed; inset:0; background:rgba(23,50,47,.75); z-index:210; display:none;
+    align-items:center; justify-content:center; padding:14px;
+  }
+  #reader-overlay.show{display:flex;}
+  .reader-card{
+    background:var(--paper); border-radius:8px; max-width:720px; width:100%; max-height:92vh;
+    display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.4);
+  }
+  .reader-top{display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--line);}
+  .reader-title{font-family:var(--mono); font-size:12px; color:var(--teal); font-weight:600;}
+  .reader-close{background:none; border:none; font-size:18px; color:var(--ink-soft); cursor:pointer; padding:2px 6px;}
+  .reader-canvas-wrap{flex:1; overflow:auto; background:var(--bg); display:flex; justify-content:center; padding:14px;}
+  .reader-canvas-wrap canvas{max-width:100%; height:auto; box-shadow:0 4px 16px rgba(0,0,0,.15); background:#fff;}
+  .reader-controls{display:flex; align-items:center; justify-content:center; gap:14px; padding:12px; border-top:1px solid var(--line);}
+  .reader-nav-btn{
+    width:38px; height:38px; border-radius:50%; border:1px solid var(--teal); background:var(--paper);
+    color:var(--teal); font-size:18px; cursor:pointer;
+  }
+  .reader-page-info{font-family:var(--mono); font-size:13px; color:var(--ink-soft); display:flex; align-items:center; gap:6px;}
+  .reader-page-input{width:52px; font-family:var(--mono); font-size:13px; text-align:center; padding:5px; border:1px solid var(--line); border-radius:2px;}
+  .reader-status{text-align:center; font-size:11.5px; color:var(--ink-soft); padding:0 12px 10px;}
+
   .log-form{display:flex; gap:8px; margin-bottom:16px;}
   .log-form textarea{
     flex:1; font-family:var(--sans); font-size:13px; padding:9px 10px; border:1px solid var(--line);
@@ -503,6 +526,27 @@
     <div class="note-modal-date" id="note-modal-date"></div>
     <div class="note-modal-body" id="note-modal-body"></div>
     <button class="btn" onclick="closeDayNote()" data-i18n="note_close">Закрыть</button>
+  </div>
+</div>
+
+<div id="reader-overlay">
+  <div class="reader-card">
+    <div class="reader-top">
+      <div class="reader-title" id="reader-title"></div>
+      <button class="reader-close" onclick="closeReader()">✕</button>
+    </div>
+    <div class="reader-canvas-wrap" id="reader-canvas-wrap">
+      <canvas id="reader-canvas"></canvas>
+    </div>
+    <div class="reader-controls">
+      <button class="reader-nav-btn" onclick="readerPrev()">‹</button>
+      <span class="reader-page-info">
+        <input type="number" id="reader-page-input" class="reader-page-input" onchange="readerJump(this.value)">
+        / <span id="reader-total-pages">—</span>
+      </span>
+      <button class="reader-nav-btn" onclick="readerNext()">›</button>
+    </div>
+    <div class="reader-status" id="reader-status"></div>
   </div>
 </div>
 
@@ -862,6 +906,42 @@ function saveLocal(){
 }
 loadLocal();
 
+/* ---------- LOCAL PDF STORAGE (IndexedDB, device-only) ---------- */
+const PDF_DB_NAME = 'usmleTutorPdfs';
+function openPdfDb(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(PDF_DB_NAME, 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore('pdfs'); };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+}
+async function savePdfLocally(sourceId, blob){
+  const db = await openPdfDb();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('pdfs', 'readwrite');
+    tx.objectStore('pdfs').put(blob, sourceId);
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+async function loadPdfLocally(sourceId){
+  const db = await openPdfDb();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('pdfs', 'readonly');
+    const req = tx.objectStore('pdfs').get(sourceId);
+    req.onsuccess = ()=> resolve(req.result || null);
+    req.onerror = ()=> reject(req.error);
+  });
+}
+async function deletePdfLocally(sourceId){
+  try{
+    const db = await openPdfDb();
+    const tx = db.transaction('pdfs', 'readwrite');
+    tx.objectStore('pdfs').delete(sourceId);
+  }catch(e){}
+}
+
 /* ---------- SOURCE MANAGEMENT ---------- */
 function reconcileSelectedModules(){
   const validIds = new Set(MODULES.map(m=>m.id));
@@ -917,8 +997,10 @@ function switchSource(id){
 function deleteSource(id){
   if(sources[id] && sources[id].builtin) return;
   if(!confirm('Удалить источник "'+sources[id].name+'"? Прогресс по нему сохранится в базе, но пропадёт из списка.')) return;
+  const hadPdf = sources[id] && sources[id].hasPdf;
   delete state.customSources[id];
   writeKey('customSources/'+id, null);
+  if(hadPdf) deletePdfLocally(id);
   if(activeSourceId === id) switchSource('firstaid');
   else { rebuildSourcesRegistry(); renderSourcePanel(); }
 }
@@ -933,10 +1015,10 @@ async function extractPdfText(file){
   for(let i=1; i<=maxPages; i++){
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    text += content.items.map(it=>it.str).join(' ') + '\n';
+    text += `[PAGE ${i}]\n` + content.items.map(it=>it.str).join(' ') + '\n';
     if(text.length > 90000) break;
   }
-  return text;
+  return {text, totalPages: pdf.numPages};
 }
 async function generateSource(){
   const statusEl = document.getElementById('source-status');
@@ -950,12 +1032,17 @@ async function generateSource(){
   if(!apiKey){ statusEl.textContent = uiLang==='ru' ? 'Нужен API-ключ вверху страницы' : 'Need an API key at the top of the page'; statusEl.className='source-status error'; return; }
 
   let text = pasteEl.value.trim();
+  let pdfFile = null;
+  let totalPages = null;
   try{
     if(!text && fileInput.files[0]){
       statusEl.textContent = uiLang==='ru' ? 'Читаю файл…' : 'Reading file…'; statusEl.className='source-status';
       const file = fileInput.files[0];
       if(file.name.toLowerCase().endsWith('.pdf')){
-        text = await extractPdfText(file);
+        const extracted = await extractPdfText(file);
+        text = extracted.text;
+        totalPages = extracted.totalPages;
+        pdfFile = file;
       } else {
         text = await file.text();
       }
@@ -974,10 +1061,12 @@ async function generateSource(){
     statusEl.className = 'source-status';
   }
 
+  const pagesInstructionRu = pdfFile ? ` Текст размечен маркерами вида [PAGE N] перед содержимым каждой страницы исходного PDF. Добавь в каждый объект поле "pages":"начало-конец" — реальный диапазон номеров страниц (по этим маркерам), на которых расположен материал данного модуля. Если модуль выходит за пределы просмотренного фрагмента — укажи диапазон в пределах видимого текста максимально точно.` : '';
+  const pagesInstructionEn = pdfFile ? ` The text is marked with [PAGE N] markers before each source PDF page's content. Add a "pages":"start-end" field to each object — the real page-number range (from these markers) where that module's material is located. If a module extends beyond the reviewed excerpt, give the range within the visible text as accurately as possible.` : '';
   const sysPrompt = text
     ? (uiLang==='ru'
-      ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения. Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"Название категории-группы","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat" — придумай сам, исходя из природы этого конкретного источника: сгруппируй модули по смысловым блокам, естественным для этого предмета (например, для анатомии — по системам органов; для фармакологии — по классам препаратов вроде "Антибиотики", "Анальгетики"; для хирургии — по типам операций; и т.д.). Не используй общие ярлыки вроде "General"/"Organ" — категория должна быть содержательной и понятной именно для этого источника. Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.`
-      : `Help break a study source into modules and subtopics for a study tracker. Analyze the provided text (an excerpt/table of contents from the source "${name}") and output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"Category group name","subs":["Subtopic 1","Subtopic 2", ...]}]. The "cat" field — choose it yourself based on the nature of this specific source: group modules into meaningful blocks natural to the subject (e.g. for anatomy — by organ system; for pharmacology — by drug class like "Antibiotics", "Analgesics"; for surgery — by procedure type; etc.). Don't use generic labels like "General"/"Organ" — the category should be meaningful and specific to this source. Split the material into 8-20 logical modules (chapters/sections), each with 5-15 specific high-yield subtopics. If the text is short or incomplete (e.g. only part of a textbook), use general knowledge of the subject to reasonably extend the structure, matching the level of detail found in the excerpt.`)
+      ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения. Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"Название категории-группы","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat" — придумай сам, исходя из природы этого конкретного источника: сгруппируй модули по смысловым блокам, естественным для этого предмета (например, для анатомии — по системам органов; для фармакологии — по классам препаратов вроде "Антибиотики", "Анальгетики"; для хирургии — по типам операций; и т.д.). Не используй общие ярлыки вроде "General"/"Organ" — категория должна быть содержательной и понятной именно для этого источника. Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.${pagesInstructionRu}`
+      : `Help break a study source into modules and subtopics for a study tracker. Analyze the provided text (an excerpt/table of contents from the source "${name}") and output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"Category group name","subs":["Subtopic 1","Subtopic 2", ...]}]. The "cat" field — choose it yourself based on the nature of this specific source: group modules into meaningful blocks natural to the subject (e.g. for anatomy — by organ system; for pharmacology — by drug class like "Antibiotics", "Analgesics"; for surgery — by procedure type; etc.). Don't use generic labels like "General"/"Organ" — the category should be meaningful and specific to this source. Split the material into 8-20 logical modules (chapters/sections), each with 5-15 specific high-yield subtopics. If the text is short or incomplete (e.g. only part of a textbook), use general knowledge of the subject to reasonably extend the structure, matching the level of detail found in the excerpt.${pagesInstructionEn}`)
     : (uiLang==='ru'
       ? `Пользователь не прислал текст источника — только название: "${name}". По своим общим знаниям об этой книге/курсе/предмете построй типичную структуру глав и тем, в формате трекера обучения (модуль -> список конкретных подтем). Если это известный учебник (например, Netter's Anatomy, Kaplan Physiology, Robbins Pathology и т.п.) — используй его реальное известное оглавление по памяти, максимально точно. Если название малоизвестно или неоднозначно — построй разумную типовую структуру для предмета с таким названием. Выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"Название категории-группы","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat" придумай сам — сгруппируй по смысловым блокам, естественным именно для этого предмета (не общие ярлыки вроде "General"/"Organ"). 8-20 модулей, в каждом 5-15 конкретных подтем.`
       : `The user provided no source text — only a name: "${name}". Using your general knowledge of this book/course/subject, build a typical chapter/topic structure in the study-tracker format (module -> list of specific subtopics). If this is a known textbook (e.g. Netter's Anatomy, Kaplan Physiology, Robbins Pathology, etc.) — recall its real table of contents as accurately as you can from memory. If the name is obscure or ambiguous, build a reasonable generic structure for a subject with that name. Output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"Category group name","subs":["Subtopic 1","Subtopic 2", ...]}]. Choose the "cat" field yourself — group into meaningful blocks natural to this specific subject (not generic labels like "General"/"Organ"). 8-20 modules, each with 5-15 specific subtopics.`);
@@ -1015,16 +1104,26 @@ async function generateSource(){
     const modules = parsed.map((m, i)=>{
       const moduleName = (m.name||'Module '+(i+1)).toString();
       const catRaw = (m.cat||'').toString().trim();
+      let pages = null;
+      if(typeof m.pages === 'string'){
+        const pm = m.pages.match(/(\d+)\s*-\s*(\d+)/);
+        if(pm) pages = {from: parseInt(pm[1],10), to: parseInt(pm[2],10)};
+      }
       return {
         id: sourceId+'_m'+i,
         cat: catRaw || (uiLang==='ru' ? 'Темы' : 'Topics'),
         name: moduleName,
-        subs: Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : []
+        subs: Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : [],
+        pages
       };
     });
     if(!state.customSources) state.customSources = {};
-    state.customSources[sourceId] = {name, modules};
-    writeKey('customSources/'+sourceId, {name, modules});
+    const sourceMeta = {name, modules, hasPdf: !!pdfFile, totalPages: totalPages||null};
+    state.customSources[sourceId] = sourceMeta;
+    writeKey('customSources/'+sourceId, sourceMeta);
+    if(pdfFile){
+      try{ await savePdfLocally(sourceId, pdfFile); }catch(e){ console.error('local pdf save failed', e); }
+    }
     switchSource(sourceId);
     nameInput.value = '';
     pasteEl.value = '';
@@ -1758,10 +1857,14 @@ function renderModuleDetail(){
     </div>`;
   }).join('');
 
+  const readerBtn = (sources[activeSourceId] && sources[activeSourceId].hasPdf && mod.pages)
+    ? `<button class="lecture-btn" onclick="openReader('${mod.id}')" style="margin-left:10px;">📄 ${uiLang==='ru'?'Читать':'Read'} (${mod.pages.from}–${mod.pages.to})</button>`
+    : '';
+
   document.getElementById('module-detail').innerHTML = `
     <div class="back-link" onclick="closeModule()">${t('back_link')}</div>
     <div class="module-detail-inner module-detail">
-      <h1>${mod.name}</h1>
+      <h1 style="display:flex; align-items:center; flex-wrap:wrap; gap:2px;">${mod.name}${readerBtn}</h1>
       ${rows}
       <div class="add-row">
         <input id="custom-input-${mod.id}" placeholder="${t('add_placeholder')}">
@@ -1906,6 +2009,74 @@ function openDayNote(dateKey){
 }
 function closeDayNote(){
   document.getElementById('note-overlay').classList.remove('show');
+}
+
+/* ---------- PDF READER (real pages, no AI, no summarizing) ---------- */
+let readerPdfDoc = null;
+let readerSourceId = null;
+let readerCurrentPage = 1;
+let readerRendering = false;
+async function openReader(modId){
+  const mod = MODULES.find(m=>m.id===modId);
+  const src = sources[activeSourceId];
+  if(!mod || !src) return;
+  const statusEl = document.getElementById('reader-status');
+  const overlay = document.getElementById('reader-overlay');
+  document.getElementById('reader-title').textContent = mod.name;
+  overlay.classList.add('show');
+  statusEl.textContent = '';
+
+  if(!src.hasPdf){
+    statusEl.textContent = uiLang==='ru' ? 'Для этого источника не был загружен PDF.' : 'No PDF was uploaded for this source.';
+    return;
+  }
+  try{
+    if(readerSourceId !== activeSourceId || !readerPdfDoc){
+      statusEl.textContent = uiLang==='ru' ? 'Загружаю PDF из локального хранилища…' : 'Loading PDF from local storage…';
+      const blob = await loadPdfLocally(activeSourceId);
+      if(!blob){
+        statusEl.textContent = uiLang==='ru'
+          ? 'PDF не найден на этом устройстве — он хранится локально в браузере, где был загружен. Загрузи файл заново для этого источника, если открываешь с другого устройства.'
+          : 'PDF not found on this device — it\'s stored locally in the browser where it was uploaded. Re-upload the file for this source if you\'re on a different device.';
+        return;
+      }
+      const buf = await blob.arrayBuffer();
+      readerPdfDoc = await pdfjsLib.getDocument({data: buf}).promise;
+      readerSourceId = activeSourceId;
+    }
+    document.getElementById('reader-total-pages').textContent = readerPdfDoc.numPages;
+    const startPage = mod.pages ? mod.pages.from : 1;
+    statusEl.textContent = '';
+    await renderReaderPage(Math.min(Math.max(startPage,1), readerPdfDoc.numPages));
+  }catch(e){
+    statusEl.textContent = (uiLang==='ru'?'Ошибка чтения PDF: ':'Error reading PDF: ')+e.message;
+  }
+}
+async function renderReaderPage(num){
+  if(!readerPdfDoc || readerRendering) return;
+  readerRendering = true;
+  readerCurrentPage = Math.min(Math.max(num,1), readerPdfDoc.numPages);
+  document.getElementById('reader-page-input').value = readerCurrentPage;
+  const page = await readerPdfDoc.getPage(readerCurrentPage);
+  const canvas = document.getElementById('reader-canvas');
+  const wrap = document.getElementById('reader-canvas-wrap');
+  const unscaledViewport = page.getViewport({scale:1});
+  const scale = Math.min((wrap.clientWidth-20) / unscaledViewport.width, 2.2);
+  const viewport = page.getViewport({scale: Math.max(scale, 0.5)});
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({canvasContext: ctx, viewport}).promise;
+  readerRendering = false;
+}
+function readerPrev(){ if(readerCurrentPage>1) renderReaderPage(readerCurrentPage-1); }
+function readerNext(){ if(readerPdfDoc && readerCurrentPage<readerPdfDoc.numPages) renderReaderPage(readerCurrentPage+1); }
+function readerJump(val){
+  const n = parseInt(val,10);
+  if(n) renderReaderPage(n);
+}
+function closeReader(){
+  document.getElementById('reader-overlay').classList.remove('show');
 }
 
 function renderLog(){
