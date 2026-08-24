@@ -991,7 +991,7 @@ function reconcileSelectedModules(){
 function rebuildSourcesRegistry(){
   sources = {firstaid: {name:'First Aid 2025', modules: MODULES_FIRSTAID, builtin:true}};
   Object.entries(state.customSources || {}).forEach(([id, src])=>{
-    sources[id] = {name: src.name, modules: src.modules, builtin:false};
+    sources[id] = {name: src.name, modules: src.modules, builtin:false, hasPdf: !!src.hasPdf, totalPages: src.totalPages||null};
   });
   if(!sources[state.activeSourceId]) state.activeSourceId = 'firstaid';
   activeSourceId = state.activeSourceId;
