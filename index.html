@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
     --bg: #eef3f1;
@@ -120,6 +121,16 @@
   .block-selector-item input{width:16px; height:16px; accent-color:var(--teal); cursor:pointer;}
   .block-selector-item.all-item{font-weight:600; border-bottom:1px solid var(--line); margin-bottom:4px; padding-bottom:9px;}
   .block-selector-group{font-family:var(--mono); font-size:10px; text-transform:uppercase; color:var(--ink-soft); letter-spacing:.05em; padding:8px 10px 3px;}
+  .source-add-block{padding:10px; border-top:1px solid var(--line); margin-top:6px; display:flex; flex-direction:column; gap:8px;}
+  .source-name-input{font-family:var(--sans); font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:2px;}
+  .source-paste{font-family:var(--sans); font-size:12.5px; padding:8px 10px; border:1px solid var(--line); border-radius:2px; min-height:70px; resize:vertical;}
+  .source-file-input{font-family:var(--sans); font-size:12px;}
+  .source-status{font-size:11.5px; color:var(--ink-soft); min-height:14px;}
+  .source-status.error{color:var(--red);}
+  .source-item{display:flex; align-items:center; justify-content:space-between; padding:8px 10px; font-size:13px; border-radius:2px; cursor:pointer;}
+  .source-item:hover{background:var(--bg);}
+  .source-item.active{background:var(--mint); font-weight:600;}
+  .source-item .src-del{color:var(--red); cursor:pointer; font-family:var(--mono); font-size:12px;}
 
   .module-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px;}
   .module-card{
@@ -509,6 +520,21 @@
     <h1 data-i18n="dash_title">Обзор прогресса</h1>
     <div class="block-selector-row">
       <span class="lede-inline" data-i18n="floating_schedule">Плавающий график</span>
+
+      <div class="block-selector">
+        <button class="block-selector-btn" onclick="toggleSourcePanel()">Source: <span id="source-count-label">First Aid</span> ▾</button>
+        <div class="block-selector-panel" id="source-panel">
+          <div id="source-list"></div>
+          <div class="source-add-block">
+            <input id="source-name-input" class="source-name-input" placeholder="Название источника (например: Anatomy Netter's)">
+            <textarea id="source-paste" class="source-paste" placeholder="Вставь текст сюда (оглавление / главы) или загрузи файл ниже"></textarea>
+            <input type="file" id="source-file-input" accept=".txt,.pdf" class="source-file-input">
+            <button class="btn" id="source-generate-btn" onclick="generateSource()">Сгенерировать блоки</button>
+            <div id="source-status" class="source-status"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="block-selector">
         <button class="block-selector-btn" onclick="toggleBlockSelector()"><span data-i18n="blocks_label">Блоки</span>: <span id="block-count-label">17/17</span> ▾</button>
         <div class="block-selector-panel" id="block-selector-panel">
@@ -697,7 +723,7 @@ function setLang(lang){
   renderAll();
 }
 
-const MODULES = [
+const MODULES_FIRSTAID = [
   {id:'gp-biochem', cat:'general', name:'Biochemistry', subs:[
     'Chromatin & DNA Structure','DNA Replication & Repair','Transcription & RNA Processing','Translation & Protein Synthesis',
     'Genetics: Modes of Inheritance','Genetics: Trinucleotide Repeat & Imprinting Disorders','Population Genetics (Hardy-Weinberg)',
@@ -812,6 +838,16 @@ const MODULES = [
   {id:'final-rapid', cat:'final', name:'Rapid Review', subs:['Cardiovascular','Respiratory','Renal','GI','Endocrine','Heme/Onc','MSK/Derm','Neuro/Psych','Reproductive','High-Yield Misc']},
 ];
 
+/* ---------- SOURCES ---------- */
+// A "source" is any curriculum: the built-in First Aid modules, or a user-generated
+// breakdown from their own uploaded material. MODULES always points at the active one.
+let sources = {
+  firstaid: {name:'First Aid 2025', modules: MODULES_FIRSTAID, builtin:true}
+};
+let activeSourceId = 'firstaid';
+let MODULES = sources[activeSourceId].modules;
+
+
 /* ---------- STATE ---------- */
 let state = {
   progress: {},   // moduleId -> subIndex/customId -> {checked, confidence, note}
@@ -819,6 +855,8 @@ let state = {
   log: {},        // ts -> {text}
   sessions: {},   // 'YYYY-MM-DD' -> [{min, moduleId, moduleName, pct, ts}]
   targetDate: '',
+  customSources: {}, // sourceId -> {name, modules}
+  activeSourceId: 'firstaid',
   selectedModules: MODULES.map(m=>m.id) // default: all blocks active
 };
 
@@ -833,7 +871,162 @@ function saveLocal(){
 }
 loadLocal();
 
-/* ---------- POMODORO ---------- */
+/* ---------- SOURCE MANAGEMENT ---------- */
+function rebuildSourcesRegistry(){
+  sources = {firstaid: {name:'First Aid 2025', modules: MODULES_FIRSTAID, builtin:true}};
+  Object.entries(state.customSources || {}).forEach(([id, src])=>{
+    sources[id] = {name: src.name, modules: src.modules, builtin:false};
+  });
+  if(!sources[state.activeSourceId]) state.activeSourceId = 'firstaid';
+  activeSourceId = state.activeSourceId;
+  MODULES = sources[activeSourceId].modules;
+}
+rebuildSourcesRegistry();
+
+function toggleSourcePanel(){
+  document.getElementById('source-panel').classList.toggle('open');
+}
+document.addEventListener('click', e=>{
+  const panel = document.getElementById('source-panel');
+  if(panel && panel.classList.contains('open') && !e.target.closest('#source-panel') && !e.target.closest('.block-selector-btn')){
+    panel.classList.remove('open');
+  }
+});
+function renderSourcePanel(){
+  const list = document.getElementById('source-list');
+  const label = document.getElementById('source-count-label');
+  if(!list) return;
+  label.textContent = sources[activeSourceId].name;
+  list.innerHTML = Object.entries(sources).map(([id, src])=>{
+    const delBtn = src.builtin ? '' : `<span class="src-del" onclick="event.stopPropagation(); deleteSource('${id}')">✕</span>`;
+    return `<div class="source-item ${id===activeSourceId?'active':''}" onclick="switchSource('${id}')">
+      <span>${src.name}</span>${delBtn}
+    </div>`;
+  }).join('');
+}
+function switchSource(id){
+  if(!sources[id]) return;
+  state.activeSourceId = id;
+  activeSourceId = id;
+  MODULES = sources[id].modules;
+  state.selectedModules = MODULES.map(m=>m.id);
+  writeKey('activeSourceId', id);
+  writeKey('selectedModules', state.selectedModules);
+  document.getElementById('source-panel').classList.remove('open');
+  currentModuleId = null;
+  renderAll();
+}
+function deleteSource(id){
+  if(sources[id] && sources[id].builtin) return;
+  if(!confirm('Удалить источник "'+sources[id].name+'"? Прогресс по нему сохранится в базе, но пропадёт из списка.')) return;
+  delete state.customSources[id];
+  writeKey('customSources/'+id, null);
+  if(activeSourceId === id) switchSource('firstaid');
+  else { rebuildSourcesRegistry(); renderSourcePanel(); }
+}
+function slugify(str){
+  return 'src_' + str.toLowerCase().replace(/[^a-z0-9а-яё]+/gi,'_').slice(0,30) + '_' + Date.now().toString(36);
+}
+async function extractPdfText(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  let text = '';
+  const maxPages = Math.min(pdf.numPages, 60);
+  for(let i=1; i<=maxPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it=>it.str).join(' ') + '\n';
+    if(text.length > 90000) break;
+  }
+  return text;
+}
+async function generateSource(){
+  const statusEl = document.getElementById('source-status');
+  const nameInput = document.getElementById('source-name-input');
+  const pasteEl = document.getElementById('source-paste');
+  const fileInput = document.getElementById('source-file-input');
+  const name = nameInput.value.trim();
+  if(!name){ statusEl.textContent = uiLang==='ru' ? 'Введи название источника' : 'Enter a source name'; statusEl.className='source-status error'; return; }
+
+  const apiKey = localStorage.getItem('usmleTutorApiKey_'+currentProvider());
+  if(!apiKey){ statusEl.textContent = uiLang==='ru' ? 'Нужен API-ключ вверху страницы' : 'Need an API key at the top of the page'; statusEl.className='source-status error'; return; }
+
+  let text = pasteEl.value.trim();
+  try{
+    if(!text && fileInput.files[0]){
+      statusEl.textContent = uiLang==='ru' ? 'Читаю файл…' : 'Reading file…'; statusEl.className='source-status';
+      const file = fileInput.files[0];
+      if(file.name.toLowerCase().endsWith('.pdf')){
+        text = await extractPdfText(file);
+      } else {
+        text = await file.text();
+      }
+    }
+  }catch(e){
+    statusEl.textContent = (uiLang==='ru'?'Не удалось прочитать файл: ':'Could not read file: ')+e.message;
+    statusEl.className='source-status error';
+    return;
+  }
+  if(!text){ statusEl.textContent = uiLang==='ru' ? 'Вставь текст или загрузи файл' : 'Paste text or upload a file'; statusEl.className='source-status error'; return; }
+  text = text.slice(0, 90000);
+
+  statusEl.textContent = uiLang==='ru' ? 'Генерирую структуру блоков…' : 'Generating block structure…';
+  statusEl.className = 'source-status';
+
+  const sysPrompt = uiLang==='ru'
+    ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения, в том же формате, что и First Aid USMLE (модуль -> список конкретных подтем). Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","subs":["Подтема 1","Подтема 2", ...]}]. Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.`
+    : `Help break a study source into modules and subtopics for a study tracker, in the same format as the First Aid USMLE structure (module -> list of specific subtopics). Analyze the provided text (an excerpt/table of contents from the source "${name}") and output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","subs":["Subtopic 1","Subtopic 2", ...]}]. Split the material into 8-20 logical modules (chapters/sections), each with 5-15 specific high-yield subtopics. If the text is short or incomplete (e.g. only part of a textbook), use general knowledge of the subject to reasonably extend the structure, matching the level of detail found in the excerpt.`;
+
+  try{
+    let raw;
+    if(currentProvider() === 'gemini'){
+      const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key='+encodeURIComponent(apiKey), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          system_instruction:{parts:[{text:sysPrompt}]},
+          contents:[{role:'user', parts:[{text: text}]}]
+        })
+      });
+      const data = await resp.json();
+      if(data.error) throw new Error(data.error.message||'Gemini error');
+      raw = (data.candidates||[])[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
+    } else {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body: JSON.stringify({model:'claude-sonnet-4-6', max_tokens:4000, system:sysPrompt, messages:[{role:'user', content:text}]})
+      });
+      const data = await resp.json();
+      if(data.error) throw new Error(data.error.message||'Claude error');
+      raw = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    }
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if(!jsonMatch) throw new Error(uiLang==='ru' ? 'Модель не вернула JSON' : 'Model did not return JSON');
+    const parsed = JSON.parse(jsonMatch[0]);
+    if(!Array.isArray(parsed) || !parsed.length) throw new Error(uiLang==='ru' ? 'Пустая структура' : 'Empty structure');
+
+    const sourceId = slugify(name);
+    const modules = parsed.map((m, i)=>({
+      id: sourceId+'_m'+i,
+      cat: 'general',
+      name: (m.name||'Module '+(i+1)).toString(),
+      subs: Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : []
+    }));
+    if(!state.customSources) state.customSources = {};
+    state.customSources[sourceId] = {name, modules};
+    writeKey('customSources/'+sourceId, {name, modules});
+    switchSource(sourceId);
+    nameInput.value = '';
+    pasteEl.value = '';
+    fileInput.value = '';
+    statusEl.textContent = uiLang==='ru' ? `Готово — ${modules.length} блоков создано.` : `Done — ${modules.length} blocks created.`;
+    statusEl.className = 'source-status';
+  }catch(e){
+    statusEl.textContent = (uiLang==='ru'?'Ошибка: ':'Error: ')+e.message;
+    statusEl.className = 'source-status error';
+  }
+}
+
 const POMO_PHRASES_RU = [
   "Отлично сделано!","Почти у цели!","Ты молодец!","Хорошая сессия фокуса!","Держи темп!",
   "Крепкая работа!","Мозг говорит спасибо.","Ещё на шаг ближе к Step 1.","Это прогресс, а не просто время.",
@@ -1049,6 +1242,9 @@ function attachDbListener(){
     if(remote.sessions) deepMerge(state.sessions, remote.sessions);
     if(remote.targetDate !== undefined) state.targetDate = remote.targetDate;
     if(remote.selectedModules !== undefined) state.selectedModules = remote.selectedModules;
+    if(remote.customSources) deepMerge(state.customSources, remote.customSources);
+    if(remote.activeSourceId !== undefined) state.activeSourceId = remote.activeSourceId;
+    rebuildSourcesRegistry();
     syncReady = true;
     setSyncDot('on');
     saveLocal();
@@ -1737,6 +1933,7 @@ document.querySelectorAll('nav button').forEach(btn=>{
 /* ---------- MASTER RENDER ---------- */
 function renderAll(){
   if(state.targetDate) targetInput.value = state.targetDate;
+  renderSourcePanel();
   renderBlockSelectorPanel();
   renderGrids('grid');
   renderGrids('mgrid');
