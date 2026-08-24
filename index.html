@@ -83,9 +83,10 @@
   nav button.active{color:var(--teal); border-bottom-color:var(--teal); font-weight:600;}
 
   main{
-    max-width:920px; margin:0 auto; padding:22px 16px; width:100%; box-sizing:border-box;
+    width:100%; box-sizing:border-box;
     flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;
   }
+  .main-inner{max-width:920px; margin:0 auto; padding:22px 16px;}
   .view{display:none;}
   .view.active{display:block;}
 
@@ -514,6 +515,7 @@
 </nav>
 
 <main>
+<div class="main-inner">
 
   <!-- DASHBOARD -->
   <div class="view active" id="view-dashboard">
@@ -611,6 +613,7 @@
     <div id="log-list"></div>
   </div>
 
+</div>
 </main>
 
 <script>
@@ -978,11 +981,11 @@ async function generateSource(){
 
   const sysPrompt = text
     ? (uiLang==='ru'
-      ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения, в том же формате, что и First Aid USMLE (модуль -> список конкретных подтем). Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","subs":["Подтема 1","Подтема 2", ...]}]. Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.`
-      : `Help break a study source into modules and subtopics for a study tracker, in the same format as the First Aid USMLE structure (module -> list of specific subtopics). Analyze the provided text (an excerpt/table of contents from the source "${name}") and output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","subs":["Subtopic 1","Subtopic 2", ...]}]. Split the material into 8-20 logical modules (chapters/sections), each with 5-15 specific high-yield subtopics. If the text is short or incomplete (e.g. only part of a textbook), use general knowledge of the subject to reasonably extend the structure, matching the level of detail found in the excerpt.`)
+      ? `Ты помогаешь разбить учебный источник на модули и подтемы для трекера обучения, в том же формате, что и First Aid USMLE (модуль -> список конкретных подтем). Проанализируй присланный текст (это отрывок/оглавление источника "${name}") и выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"general"|"organ","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat": "general" — для базовых/сквозных дисциплин (например, общая биохимия, общая физиология, общие принципы, вводные главы); "organ" — для модулей, посвящённых конкретной системе органов/анатомической области (например, сердечно-сосудистая, дыхательная, нервная система и т.п.). Раздели материал на 8-20 логичных модулей (глав/разделов), в каждом 5-15 конкретных высокочастотных подтем. Если текста мало или он неполный (например, это лишь часть учебника) — используй общие знания по этому предмету, чтобы разумно достроить структуру, соответствующую духу и уровню детализации присланного отрывка.`
+      : `Help break a study source into modules and subtopics for a study tracker, in the same format as the First Aid USMLE structure (module -> list of specific subtopics). Analyze the provided text (an excerpt/table of contents from the source "${name}") and output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"general"|"organ","subs":["Subtopic 1","Subtopic 2", ...]}]. The "cat" field: "general" for foundational/cross-cutting subjects (e.g. general biochemistry, general physiology, intro chapters); "organ" for modules covering a specific organ system or anatomical region (e.g. cardiovascular, respiratory, nervous system, etc.). Split the material into 8-20 logical modules (chapters/sections), each with 5-15 specific high-yield subtopics. If the text is short or incomplete (e.g. only part of a textbook), use general knowledge of the subject to reasonably extend the structure, matching the level of detail found in the excerpt.`)
     : (uiLang==='ru'
-      ? `Пользователь не прислал текст источника — только название: "${name}". По своим общим знаниям об этой книге/курсе/предмете построй типичную структуру глав и тем, в формате трекера обучения (модуль -> список конкретных подтем). Если это известный учебник (например, Netter's Anatomy, Kaplan Physiology, Robbins Pathology и т.п.) — используй его реальное известное оглавление по памяти, максимально точно. Если название малоизвестно или неоднозначно — построй разумную типовую структуру для предмета с таким названием. Выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","subs":["Подтема 1","Подтема 2", ...]}]. 8-20 модулей, в каждом 5-15 конкретных подтем.`
-      : `The user provided no source text — only a name: "${name}". Using your general knowledge of this book/course/subject, build a typical chapter/topic structure in the study-tracker format (module -> list of specific subtopics). If this is a known textbook (e.g. Netter's Anatomy, Kaplan Physiology, Robbins Pathology, etc.) — recall its real table of contents as accurately as you can from memory. If the name is obscure or ambiguous, build a reasonable generic structure for a subject with that name. Output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","subs":["Subtopic 1","Subtopic 2", ...]}]. 8-20 modules, each with 5-15 specific subtopics.`);
+      ? `Пользователь не прислал текст источника — только название: "${name}". По своим общим знаниям об этой книге/курсе/предмете построй типичную структуру глав и тем, в формате трекера обучения (модуль -> список конкретных подтем). Если это известный учебник (например, Netter's Anatomy, Kaplan Physiology, Robbins Pathology и т.п.) — используй его реальное известное оглавление по памяти, максимально точно. Если название малоизвестно или неоднозначно — построй разумную типовую структуру для предмета с таким названием. Выдай СТРОГО валидный JSON-массив, без markdown-обёртки, без пояснений — только JSON. Формат: [{"name":"Название модуля","cat":"general"|"organ","subs":["Подтема 1","Подтема 2", ...]}]. Поле "cat": "general" для базовых/сквозных тем, "organ" для тем по конкретной системе органов/анатомической области. 8-20 модулей, в каждом 5-15 конкретных подтем.`
+      : `The user provided no source text — only a name: "${name}". Using your general knowledge of this book/course/subject, build a typical chapter/topic structure in the study-tracker format (module -> list of specific subtopics). If this is a known textbook (e.g. Netter's Anatomy, Kaplan Physiology, Robbins Pathology, etc.) — recall its real table of contents as accurately as you can from memory. If the name is obscure or ambiguous, build a reasonable generic structure for a subject with that name. Output STRICTLY valid JSON array, no markdown wrapper, no explanation — JSON only. Format: [{"name":"Module Name","cat":"general"|"organ","subs":["Subtopic 1","Subtopic 2", ...]}]. The "cat" field: "general" for foundational/cross-cutting topics, "organ" for topics on a specific organ system/anatomical region. 8-20 modules, each with 5-15 specific subtopics.`);
 
   const userContent = text || `Source name: ${name}`;
   try{
@@ -1016,7 +1019,7 @@ async function generateSource(){
     const sourceId = slugify(name);
     const modules = parsed.map((m, i)=>({
       id: sourceId+'_m'+i,
-      cat: 'general',
+      cat: m.cat === 'organ' ? 'organ' : 'general',
       name: (m.name||'Module '+(i+1)).toString(),
       subs: Array.isArray(m.subs) ? m.subs.map(s=>s.toString()) : []
     }));
