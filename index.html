@@ -500,7 +500,14 @@
     border:1px solid var(--line); border-radius:2px;
   }
   .login-box .btn{width:100%; padding:11px;}
+  .btn-secondary{
+    font-family:var(--mono); font-size:12px; background:var(--paper); color:var(--teal-deep);
+    border:1px solid var(--line); border-radius:2px; padding:8px 12px; cursor:pointer;
+  }
+  .login-box .btn-secondary{width:100%; margin-top:8px;}
   #login-error{color:var(--red); font-size:12.5px; margin-top:8px; min-height:16px;}
+  .account-widget{display:flex; align-items:center; gap:8px;}
+  #account-email{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
   body.locked main, body.locked nav{filter:blur(6px); pointer-events:none; user-select:none;}
 
   @media (max-width:600px){
@@ -528,10 +535,11 @@
       </svg>
     </div>
     <div class="brand-name">LEARNOVA</div>
-    <p class="lede" data-i18n="login_sub">Вход только для тебя</p>
+    <p class="lede" data-i18n="login_sub">Свой аккаунт — свой прогресс</p>
     <input type="email" id="login-email" data-i18n-placeholder="login_email" placeholder="email" autocomplete="username">
     <input type="password" id="login-password" data-i18n-placeholder="login_password" placeholder="пароль" autocomplete="current-password">
     <button class="btn" id="login-submit" data-i18n="login_btn">Войти</button>
+    <button class="btn-secondary" id="login-signup" data-i18n="signup_btn">Создать аккаунт</button>
     <div id="login-error"></div>
   </div>
 </div>
@@ -568,6 +576,10 @@
     </span>
     <span><span id="lbl-target">Target:</span> <input type="date" id="target-date"></span>
     <span><span id="lbl-daysleft">Days left:</span> <b id="days-left">—</b></span>
+    <span class="account-widget">
+      <span id="account-email"></span>
+      <button class="btn-secondary" id="logout-btn" data-i18n="logout_btn">Выйти</button>
+    </span>
   </div>
 </header>
 
@@ -798,7 +810,9 @@ try{
   db = firebase.database();
 }catch(e){ console.error('Firebase init failed', e); }
 
-const ROOT = 'usmleTutor';
+let currentUid = null;
+let ROOT = 'usmleTutor'; // reassigned to 'usmleTutor/<uid>' once a user logs in
+function uk(base){ return currentUid ? base+'_'+currentUid : base; }
 
 /* ---------- DATA MODEL ---------- */
 // Standard First Aid 2025 breakdown. Each module = section-level topic.
@@ -815,7 +829,7 @@ const LANG = {
     log_title:'Дневник сессий', log_lede:'Плавающий график — без фиксированных часов. Помодоро-сессии записываются сюда автоматически.',
     log_placeholder:'Что хочешь отметить для себя сегодня? К чему вернуться, что было сложно, какие хайлайты дня…',
     log_submit:'Записать', cal_label:'Календарь', notes_label:'Все записи',
-    login_sub:'Вход только для тебя', login_email:'email', login_password:'пароль', login_btn:'Войти',
+    login_sub:'Свой аккаунт — свой прогресс', login_email:'email', login_password:'пароль', login_btn:'Войти', signup_btn:'Создать аккаунт', logout_btn:'Выйти',
     pomo_continue:'Продолжить', note_close:'Закрыть', pomo_msg_sub:'Сессия завершена — самое время отметить, что прошёл.',
     source_name_placeholder:"Название источника (например: Anatomy Netter's)",
     source_paste_placeholder:'Вставь текст сюда (оглавление / главы) или загрузи файл ниже',
@@ -849,7 +863,7 @@ const LANG = {
     log_title:'Study Diary', log_lede:'Floating schedule — no fixed hours. Pomodoro sessions log here automatically.',
     log_placeholder:'What do you want to note for yourself today? What to revisit, what was hard, today\'s highlights…',
     log_submit:'Save', cal_label:'Calendar', notes_label:'All Notes',
-    login_sub:'Sign-in for you only', login_email:'email', login_password:'password', login_btn:'Sign in',
+    login_sub:'Your own account, your own progress', login_email:'email', login_password:'password', login_btn:'Sign in', signup_btn:'Create account', logout_btn:'Log out',
     pomo_continue:'Continue', note_close:'Close', pomo_msg_sub:'Session complete — good time to log what you covered.',
     source_name_placeholder:"Source name (e.g. Anatomy Netter's)",
     source_paste_placeholder:'Paste text here (table of contents / chapters) or upload a file below',
@@ -1025,28 +1039,31 @@ let MODULES = [];
 
 
 /* ---------- STATE ---------- */
-let state = {
-  progress: {},   // moduleId -> subIndex/customId -> {checked, confidence, note}
-  custom: {},     // moduleId -> [{id, label}]
-  log: {},        // ts -> {text}
-  sessions: {},   // 'YYYY-MM-DD' -> [{min, moduleId, moduleName, pct, ts}]
-  quizSessions: {}, // sessionId -> {ts, moduleId, moduleName, debrief}
-  pdfHighlights: {}, // '<sourceId>_p<page>' -> [{id, color, startItem, startOffset, endItem, endOffset, text}]
-  pdfBookmarks: {}, // moduleId -> page number
-  targetDate: '',
-  customSources: {}, // sourceId -> {name, modules}
-  activeSourceId: null,
-  selectedModules: MODULES.map(m=>m.id) // default: all blocks active
-};
+function defaultState(){
+  return {
+    progress: {},   // moduleId -> subIndex/customId -> {checked, confidence, note}
+    custom: {},     // moduleId -> [{id, label}]
+    log: {},        // ts -> {text}
+    sessions: {},   // 'YYYY-MM-DD' -> [{min, moduleId, moduleName, pct, ts}]
+    quizSessions: {}, // sessionId -> {ts, moduleId, moduleName, debrief}
+    pdfHighlights: {}, // '<sourceId>_p<page>' -> [{id, color, startItem, startOffset, endItem, endOffset, text}]
+    pdfBookmarks: {}, // moduleId -> page number
+    targetDate: '',
+    customSources: {}, // sourceId -> {name, modules}
+    activeSourceId: null,
+    selectedModules: [] // default: all blocks active
+  };
+}
+let state = defaultState();
 
 function loadLocal(){
   try{
-    const raw = localStorage.getItem('usmleTutorState');
+    const raw = localStorage.getItem(uk('usmleTutorState'));
     if(raw) state = Object.assign(state, JSON.parse(raw));
   }catch(e){}
 }
 function saveLocal(){
-  try{ localStorage.setItem('usmleTutorState', JSON.stringify(state)); }catch(e){}
+  try{ localStorage.setItem(uk('usmleTutorState'), JSON.stringify(state)); }catch(e){}
 }
 loadLocal();
 
@@ -1064,7 +1081,7 @@ async function savePdfLocally(sourceId, blob){
   const db = await openPdfDb();
   return new Promise((resolve, reject)=>{
     const tx = db.transaction('pdfs', 'readwrite');
-    tx.objectStore('pdfs').put(blob, sourceId);
+    tx.objectStore('pdfs').put(blob, uk(sourceId));
     tx.oncomplete = ()=> resolve();
     tx.onerror = ()=> reject(tx.error);
   });
@@ -1073,7 +1090,7 @@ async function loadPdfLocally(sourceId){
   const db = await openPdfDb();
   return new Promise((resolve, reject)=>{
     const tx = db.transaction('pdfs', 'readonly');
-    const req = tx.objectStore('pdfs').get(sourceId);
+    const req = tx.objectStore('pdfs').get(uk(sourceId));
     req.onsuccess = ()=> resolve(req.result || null);
     req.onerror = ()=> reject(req.error);
   });
@@ -1082,7 +1099,7 @@ async function deletePdfLocally(sourceId){
   try{
     const db = await openPdfDb();
     const tx = db.transaction('pdfs', 'readwrite');
-    tx.objectStore('pdfs').delete(sourceId);
+    tx.objectStore('pdfs').delete(uk(sourceId));
   }catch(e){}
 }
 
@@ -1215,7 +1232,7 @@ async function generateSource(){
   const name = nameInput.value.trim();
   if(!name){ statusEl.textContent = uiLang==='ru' ? 'Введи название источника' : 'Enter a source name'; statusEl.className='source-status error'; return; }
 
-  const apiKey = localStorage.getItem('usmleTutorApiKey_'+currentProvider());
+  const apiKey = localStorage.getItem(uk('usmleTutorApiKey_'+currentProvider()));
   if(!apiKey){ statusEl.textContent = uiLang==='ru' ? 'Нужен API-ключ вверху страницы' : 'Need an API key at the top of the page'; statusEl.className='source-status error'; return; }
 
   let text = pasteEl.value.trim();
@@ -1642,9 +1659,14 @@ function setSyncDot(status){
 }
 
 let dbListenerAttached = false;
+let attachedListenerRoot = null;
 function attachDbListener(){
-  if(!db || dbListenerAttached) return;
+  if(!db) return;
+  if(dbListenerAttached && attachedListenerRoot){
+    db.ref(attachedListenerRoot).off(); // detach any previous user's listener first
+  }
   dbListenerAttached = true;
+  attachedListenerRoot = ROOT;
   db.ref(ROOT).on('value', snap => {
     const remote = snap.val() || {};
     // merge: only apply keys actually present, never treat "absence" as "clear"
@@ -1671,15 +1693,37 @@ function attachDbListener(){
   });
 }
 
-/* ---------- AUTH ---------- */
+/* ---------- AUTH (multi-account: each uid gets its own isolated dashboard) ---------- */
 const auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : null;
 if(auth){
   auth.onAuthStateChanged(user => {
     if(user){
+      const switchingUser = currentUid !== null && currentUid !== user.uid;
+      currentUid = user.uid;
+      ROOT = 'usmleTutor/' + currentUid;
       document.getElementById('login-screen').classList.add('hidden');
       document.body.classList.remove('locked');
+      const emailEl = document.getElementById('account-email');
+      if(emailEl) emailEl.textContent = user.email || '';
+      // clean slate before loading this specific user's own cached/remote data,
+      // so a previous account's data never bleeds into the newly logged-in one
+      state = defaultState();
+      syncReady = false;
+      loadLocal();
+      loadChatsFromLocal();
+      readerPdfDoc = null; readerSourceId = null; // force PDF reload under this user's namespace
+      rebuildSourcesRegistry();
+      renderAll();
       attachDbListener();
     } else {
+      if(dbListenerAttached && attachedListenerRoot){
+        db.ref(attachedListenerRoot).off();
+        dbListenerAttached = false;
+        attachedListenerRoot = null;
+      }
+      currentUid = null;
+      ROOT = 'usmleTutor';
+      state = defaultState();
       document.getElementById('login-screen').classList.remove('hidden');
       document.body.classList.add('locked');
       setSyncDot('off');
@@ -1699,8 +1743,29 @@ function doLogin(){
   errEl.textContent = '';
   if(!auth){ errEl.textContent = 'Auth недоступен'; return; }
   auth.signInWithEmailAndPassword(email, pass).catch(e=>{
-    errEl.textContent = 'Неверный email или пароль';
+    errEl.textContent = uiLang==='ru' ? 'Неверный email или пароль' : 'Wrong email or password';
   });
+}
+const signupBtn = document.getElementById('login-signup');
+if(signupBtn){
+  signupBtn.addEventListener('click', ()=>{
+    const email = document.getElementById('login-email').value.trim();
+    const pass = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    errEl.textContent = '';
+    if(!auth){ errEl.textContent = 'Auth недоступен'; return; }
+    if(!email || !pass){
+      errEl.textContent = uiLang==='ru' ? 'Введи email и пароль (от 6 символов)' : 'Enter an email and password (6+ chars)';
+      return;
+    }
+    auth.createUserWithEmailAndPassword(email, pass).catch(e=>{
+      errEl.textContent = uiLang==='ru' ? ('Не удалось создать аккаунт: '+e.message) : ('Could not create account: '+e.message);
+    });
+  });
+}
+const logoutBtn = document.getElementById('logout-btn');
+if(logoutBtn){
+  logoutBtn.addEventListener('click', ()=>{ if(auth) auth.signOut(); });
 }
 
 function deepMerge(target, source){
@@ -1730,7 +1795,7 @@ const providerSelect = document.getElementById('llm-provider');
 const apiKeyInput = document.getElementById('api-key-input');
 const keyDot = document.getElementById('key-dot');
 const keyStatusText = document.getElementById('key-status-text');
-function currentProvider(){ return localStorage.getItem('usmleTutorProvider') || 'gemini'; }
+function currentProvider(){ return localStorage.getItem(uk('usmleTutorProvider')) || 'gemini'; }
 const keyWidget = document.getElementById('key-widget');
 function setKeyStatus(state, text){
   keyDot.className = 'key-dot ' + state;
@@ -1746,7 +1811,7 @@ function expandKeyWidget(){
   apiKeyInput.focus();
 }
 function loadKeyForProvider(){
-  const key = localStorage.getItem('usmleTutorApiKey_'+currentProvider()) || '';
+  const key = localStorage.getItem(uk('usmleTutorApiKey_'+currentProvider())) || '';
   apiKeyInput.value = key;
   const providerLabels = {gemini:'Gemini', claude:'Claude', openai:'OpenAI', deepseek:'DeepSeek', grok:'Grok'};
   apiKeyInput.placeholder = (providerLabels[currentProvider()]||currentProvider()) + ' API key';
@@ -1755,13 +1820,13 @@ function loadKeyForProvider(){
 providerSelect.value = currentProvider();
 loadKeyForProvider();
 providerSelect.addEventListener('change', ()=>{
-  localStorage.setItem('usmleTutorProvider', providerSelect.value);
+  localStorage.setItem(uk('usmleTutorProvider'), providerSelect.value);
   loadKeyForProvider();
 });
 async function validateAndSaveKey(showChecking){
   const provider = currentProvider();
   const key = apiKeyInput.value.trim();
-  localStorage.setItem('usmleTutorApiKey_'+provider, key);
+  localStorage.setItem(uk('usmleTutorApiKey_'+provider), key);
   if(!key){ setKeyStatus('', 'No key'); return; }
   if(showChecking !== false) setKeyStatus('checking', 'Checking…');
   try{
@@ -1801,17 +1866,16 @@ apiKeyInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ apiKeyInput.bl
 /* ---------- TUTOR CHAT ---------- */
 let tutorChats = {}; // modId -> [{role, content}], local-only (not synced)
 let quizChats = {};  // modId -> [{role, content}], local-only, separate from free-form tutor chat
-try{
-  tutorChats = JSON.parse(localStorage.getItem('usmleTutorChats') || '{}');
-}catch(e){ tutorChats = {}; }
-try{
-  quizChats = JSON.parse(localStorage.getItem('usmleTutorQuizChats') || '{}');
-}catch(e){ quizChats = {}; }
+function loadChatsFromLocal(){
+  try{ tutorChats = JSON.parse(localStorage.getItem(uk('usmleTutorChats')) || '{}'); }catch(e){ tutorChats = {}; }
+  try{ quizChats = JSON.parse(localStorage.getItem(uk('usmleTutorQuizChats')) || '{}'); }catch(e){ quizChats = {}; }
+}
+loadChatsFromLocal();
 function saveTutorChats(){
-  try{ localStorage.setItem('usmleTutorChats', JSON.stringify(tutorChats)); }catch(e){}
+  try{ localStorage.setItem(uk('usmleTutorChats'), JSON.stringify(tutorChats)); }catch(e){}
 }
 function saveQuizChats(){
-  try{ localStorage.setItem('usmleTutorQuizChats', JSON.stringify(quizChats)); }catch(e){}
+  try{ localStorage.setItem(uk('usmleTutorQuizChats'), JSON.stringify(quizChats)); }catch(e){}
 }
 let panelTab = 'tutor'; // 'tutor' | 'quiz'
 function switchPanelTab(tab){
@@ -1885,7 +1949,7 @@ function escapeHtml(s){
 }
 async function callClaude(modId, chatStore, saveFn, systemPrompt){
   const provider = currentProvider();
-  const apiKey = localStorage.getItem('usmleTutorApiKey_'+provider);
+  const apiKey = localStorage.getItem(uk('usmleTutorApiKey_'+provider));
   if(!apiKey){
     const pName = {gemini:'Gemini', claude:'Claude', openai:'OpenAI', deepseek:'DeepSeek', grok:'Grok'}[provider] || provider;
     alert('Введи API-ключ ('+pName+') вверху страницы, чтобы пользоваться тьютором.');
