@@ -1289,10 +1289,53 @@ async function generateSource(){
         startPage: (Number.isFinite(startPage) && startPage>0) ? startPage : null
       };
     });
-    // derive each module's page range from its own startPage to the next module's
-    // startPage (sorted) — this is far more reliable than searching for keywords,
-    // which false-match across chapters that share vocabulary (e.g. "abdominal wall"
-    // vs "inguinal region" both mention "region", "hernia", etc).
+    // calibrate: TOC page numbers are the book's own PRINTED numbers, which are
+    // usually offset from the PDF's actual page index by however many front-matter
+    // pages (title, preface, table of contents itself) precede "page 1" of content.
+    // Verify each chapter's real location by searching for its own name within a
+    // generous window around the raw TOC number, and correct to where it's actually found.
+    const fullMarkers = [];
+    if(pdfFile && fullBookText){
+      const markerRe = /\[PAGE (\d+)\]/g;
+      let mm;
+      while((mm = markerRe.exec(fullBookText))){ fullMarkers.push({index: mm.index, page: parseInt(mm[1],10)}); }
+    }
+    function pageAtIdx(markers, idx){
+      let result = markers.length ? markers[0].page : null;
+      for(const mk of markers){ if(mk.index<=idx) result = mk.page; else break; }
+      return result;
+    }
+    function sliceByPageRange(fullText, markers, fromPage, toPage){
+      let startIdx = 0, endIdx = fullText.length;
+      for(const mk of markers){ if(mk.page === fromPage){ startIdx = mk.index; break; } }
+      for(const mk of markers){ if(mk.page === toPage+1){ endIdx = mk.index; break; } }
+      return fullText.slice(startIdx, endIdx);
+    }
+    function calibrateStartPage(moduleName, rawStart){
+      if(!rawStart || !fullMarkers.length) return rawStart;
+      const windowFrom = Math.max(1, rawStart-40);
+      const windowTo = Math.min(totalPages||rawStart+80, rawStart+80);
+      const slice = sliceByPageRange(fullBookText, fullMarkers, windowFrom, windowTo);
+      const sliceLower = slice.toLowerCase();
+      const nameLower = moduleName.toLowerCase().trim();
+      let idx = sliceLower.indexOf(nameLower);
+      if(idx === -1){
+        const words = nameLower.split(/[^a-zа-яё0-9]+/).filter(w=>w.length>=5);
+        for(const w of words){ const wi = sliceLower.indexOf(w); if(wi!==-1){ idx = wi; break; } }
+      }
+      if(idx === -1) return rawStart; // couldn't verify — keep the raw TOC number as last resort
+      const sliceMarkers = [];
+      const re = /\[PAGE (\d+)\]/g; let m2;
+      while((m2 = re.exec(slice))){ sliceMarkers.push({index:m2.index, page:parseInt(m2[1],10)}); }
+      return sliceMarkers.length ? pageAtIdx(sliceMarkers, idx) : rawStart;
+    }
+    if(pdfFile && fullMarkers.length){
+      rawModules.forEach(m=>{ if(m.startPage) m.startPage = calibrateStartPage(m.name, m.startPage); });
+    }
+
+    // derive each module's page range from its own (now calibrated) startPage to the
+    // next module's startPage (sorted) — far more reliable than searching for keywords,
+    // which false-match across chapters that share vocabulary.
     const withStart = rawModules.filter(m=>m.startPage).sort((a,b)=>a.startPage-b.startPage);
     withStart.forEach((m,i)=>{
       const nextStart = i+1 < withStart.length ? withStart[i+1].startPage : (totalPages || m.startPage+8);
@@ -1305,21 +1348,9 @@ async function generateSource(){
     // matched some unrelated chapter that happens to share vocabulary.
     if(pdfFile && fullBookText){
       const SUBTOPIC_STOPWORDS = new Set(['and','the','for','with','from','into','their','which','these','those','about','after','before','during','through','without','within','between','other','general','basic','principles','overview','introduction','common','various','different','specific']);
-      const fullMarkers = [];
-      const markerRe = /\[PAGE (\d+)\]/g;
-      let mm;
-      while((mm = markerRe.exec(fullBookText))){ fullMarkers.push({index: mm.index, page: parseInt(mm[1],10)}); }
-      function pageAtIdx(markers, idx){
-        let result = markers.length ? markers[0].page : null;
-        for(const mk of markers){ if(mk.index<=idx) result = mk.page; else break; }
-        return result;
-      }
       rawModules.forEach(m=>{
         if(!m.pages){ m.subs = m.subs.map(label=>({label, page:null})); return; }
-        let startIdx = 0, endIdx = fullBookText.length;
-        for(const mk of fullMarkers){ if(mk.page === m.pages.from){ startIdx = mk.index; break; } }
-        for(const mk of fullMarkers){ if(mk.page === m.pages.to+1){ endIdx = mk.index; break; } }
-        const sliceText = fullBookText.slice(startIdx, endIdx);
+        const sliceText = sliceByPageRange(fullBookText, fullMarkers, m.pages.from, m.pages.to);
         const sliceLower = sliceText.toLowerCase();
         const sliceMarkers = [];
         const sliceRe = /\[PAGE (\d+)\]/g;
