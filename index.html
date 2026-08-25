@@ -44,10 +44,8 @@
     gap:16px; flex-wrap:wrap; flex:0 0 auto; z-index:20;
   }
   .brand{display:flex; align-items:center; gap:14px;}
-  .brand-mark{
-    font-family:var(--mono); font-weight:700; font-size:13px; letter-spacing:0.06em;
-    color:var(--teal); line-height:1.35; border-right:1px solid var(--line); padding-right:14px;
-  }
+  .brand-mark-icon{display:flex; align-items:center; border-right:1px solid var(--line); padding-right:14px;}
+  .brand-name{font-family:var(--mono); font-weight:700; font-size:15px; letter-spacing:0.08em; color:var(--teal-deep);}
   .brand-sub{font-family:var(--mono); font-size:12px; color:var(--ink-soft); letter-spacing:.02em;}
   .countdown{
     font-family:var(--mono); font-size:12px; color:var(--ink-soft); text-align:right;
@@ -211,11 +209,13 @@
   .weak-item .wmod{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
   .weak-item .jump{font-family:var(--mono); font-size:11px; color:var(--teal); cursor:pointer; white-space:nowrap;}
   .empty{color:var(--ink-soft); font-size:13px; font-style:italic; padding:20px 0;}
-  .onboard-help{max-width:760px; margin-top:8px;}
-  .onboard-h{font-family:var(--mono); font-size:16px; font-weight:700; color:var(--teal-deep); margin:28px 0 8px; text-transform:uppercase; letter-spacing:.02em;}
-  .onboard-h:first-child{margin-top:0;}
-  .onboard-help p{font-size:16px; line-height:1.65; color:var(--ink); margin:0 0 4px;}
-  .onboard-help p b{font-weight:700; color:var(--teal-deep);}
+  .onboard-wrap{grid-column: 1 / -1; width:100%;}
+  .onboard-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:20px; margin-top:20px;}
+  .onboard-card{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px;}
+  .onboard-h{font-family:var(--mono); font-size:15px; font-weight:700; color:var(--teal-deep); margin:0 0 10px; text-transform:uppercase; letter-spacing:.02em;}
+  .onboard-card p{font-size:15.5px; line-height:1.6; color:var(--ink); margin:0 0 10px;}
+  .onboard-card p:last-child{margin-bottom:0;}
+  .onboard-card p b{font-weight:700; color:var(--teal-deep);}
 
   .cal-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
   .cal-month-label{font-family:var(--mono); font-size:15px; font-weight:700; color:var(--teal-deep);}
@@ -487,7 +487,8 @@
     background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
     padding:28px 26px; width:100%; max-width:320px;
   }
-  .login-box .brand-mark{border-right:none; padding-right:0; margin-bottom:4px;}
+  .login-box .brand-mark-icon{border-right:none; padding-right:0; margin-bottom:8px; justify-content:center;}
+  .login-box .brand-name{display:block; text-align:center; margin-bottom:4px;}
   .login-box .lede{margin-bottom:18px;}
   .login-box input{
     width:100%; font-family:var(--sans); font-size:14px; padding:10px 12px; margin-bottom:10px;
@@ -512,7 +513,16 @@
 
 <div id="login-screen">
   <div class="login-box">
-    <div class="brand-mark">STEP<br>TRACKER</div>
+    <div class="brand-mark-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64" width="52" height="52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 8v14c0 7 5 12 12 12s12-5 12-12V8" stroke="#123330" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="20" cy="8" r="4" stroke="#123330" stroke-width="3"/>
+        <circle cx="44" cy="8" r="4" stroke="#123330" stroke-width="3"/>
+        <path d="M32 34v10c0 6 5 11 11 11s11-5 11-11v-3" stroke="#123330" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="46" cy="47" r="6" stroke="#e05a4e" stroke-width="3"/>
+      </svg>
+    </div>
+    <div class="brand-name">LEARNOVA</div>
     <p class="lede" data-i18n="login_sub">Вход только для тебя</p>
     <input type="email" id="login-email" data-i18n-placeholder="login_email" placeholder="email" autocomplete="username">
     <input type="password" id="login-password" data-i18n-placeholder="login_password" placeholder="пароль" autocomplete="current-password">
@@ -523,8 +533,17 @@
 
 <header>
   <div class="brand">
-    <div class="brand-mark">STEP<br>TRACKER</div>
-    <div class="brand-sub">USMLE Step 1 — First Aid 2025</div>
+    <div class="brand-mark-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 8v14c0 7 5 12 12 12s12-5 12-12V8" stroke="#123330" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="20" cy="8" r="4" stroke="#123330" stroke-width="3"/>
+        <circle cx="44" cy="8" r="4" stroke="#123330" stroke-width="3"/>
+        <path d="M32 34v10c0 6 5 11 11 11s11-5 11-11v-3" stroke="#123330" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="46" cy="47" r="6" stroke="#e05a4e" stroke-width="3"/>
+      </svg>
+    </div>
+    <div class="brand-name">LEARNOVA</div>
+    <div class="brand-sub">from students for students, v0.1 2026</div>
   </div>
   <div class="countdown">
     <div class="lang-toggle" id="lang-toggle">
@@ -2137,40 +2156,52 @@ function catLabel(cat){
 }
 function noSourceHelp(){
   if(uiLang==='ru'){
-    return `<div class="onboard-help">
-      <div class="onboard-h">Как начать</div>
-      <p>Открой <b>"Источник"</b> вверху → впиши название своего учебника или курса → либо вставь текст оглавления, либо загрузи файл (<b>PDF</b> или .txt) кнопкой "Choose File" → нажми <b>"Сгенерировать блоки"</b>. ИИ разберёт материал на темы и подтемы автоматически.</p>
-
-      <div class="onboard-h">Чтение PDF по страницам</div>
-      <p>Если при генерации был реально выбран PDF-файл — у части тем появится кнопка <b>"📄 Read"</b>, которая откроет книгу сразу на нужной странице. Точность зависит от того, насколько хорошо совпало оглавление книги с её реальным содержимым — иногда страница может быть неточной.</p>
-      <p>Внутри читалки: <b>выделяй текст пальцем/мышкой</b> — появится панель с 5 цветами выделения, ластиком (⌫) и кнопкой <b>"Уточнить"</b> (отправляет фрагмент тьютору с просьбой объяснить). Кнопка <b>🔖</b> вверху — закладка на текущей странице, у каждой темы своя, независимая. Поле заметок под шапкой — всё, что там напишешь или вставишь, сразу падает в дневник сегодняшним числом.</p>
-
-      <div class="onboard-h">Тьютор и Квиз</div>
-      <p>Панель <b>"🎓 Тьютор мод"</b> сворачивается/разворачивается на любой странице приложения. Можно спрашивать что угодно по теме — она сама подстраивается под открытую тему. Вкладка <b>"Квиз"</b> — пошаговый клинический кейс с разбором в конце; каждый завершённый разбор сохраняется во вкладке <b>"Слабые места"</b> для пересмотра позже.</p>
-
-      <div class="onboard-h">Провайдеры ИИ</div>
-      <p>Вверху можно выбрать <b>Gemini, Claude, GPT, DeepSeek или Grok</b> — для каждого свой API-ключ, хранится только в этом браузере, не улетает никуда, кроме самого выбранного провайдера.</p>
-
-      <div class="onboard-h">Остальное</div>
-      <p><b>Слабые места</b> — автоматически собирает темы с низкой уверенностью (1-2) плюс разборы квизов. <b>Дневник</b> — календарь с заметками и сессиями Pomodoro. Кнопка-помидор внизу слева — таймер с логированием сессий прямо в календарь. Переключатель RU/EN вверху меняет язык всего интерфейса.</p>
+    return `<div class="onboard-grid">
+      <div class="onboard-card">
+        <div class="onboard-h">Как начать</div>
+        <p>Открой <b>"Источник"</b> вверху → впиши название своего учебника или курса → либо вставь текст оглавления, либо загрузи файл (<b>PDF</b> или .txt) кнопкой "Choose File" → нажми <b>"Сгенерировать блоки"</b>. ИИ разберёт материал на темы и подтемы автоматически.</p>
+      </div>
+      <div class="onboard-card">
+        <div class="onboard-h">Чтение PDF по страницам</div>
+        <p>Если при генерации был реально выбран PDF-файл — у части тем появится кнопка <b>"📄 Read"</b>, которая откроет книгу сразу на нужной странице. Точность зависит от того, насколько хорошо совпало оглавление книги с её реальным содержимым — иногда страница может быть неточной.</p>
+        <p>Внутри читалки: <b>выделяй текст пальцем/мышкой</b> — появится панель с 5 цветами выделения, ластиком (⌫) и кнопкой <b>"Уточнить"</b> (отправляет фрагмент тьютору с просьбой объяснить). Кнопка <b>🔖</b> вверху — закладка на текущей странице, у каждой темы своя, независимая. Поле заметок под шапкой — всё, что там напишешь или вставишь, сразу падает в дневник сегодняшним числом.</p>
+      </div>
+      <div class="onboard-card">
+        <div class="onboard-h">Тьютор и Квиз</div>
+        <p>Панель <b>"🎓 Тьютор мод"</b> сворачивается/разворачивается на любой странице приложения. Можно спрашивать что угодно по теме — она сама подстраивается под открытую тему. Вкладка <b>"Квиз"</b> — пошаговый клинический кейс с разбором в конце; каждый завершённый разбор сохраняется во вкладке <b>"Слабые места"</b> для пересмотра позже.</p>
+      </div>
+      <div class="onboard-card">
+        <div class="onboard-h">Провайдеры ИИ</div>
+        <p>Вверху можно выбрать <b>Gemini, Claude, GPT, DeepSeek или Grok</b> — для каждого свой API-ключ, хранится только в этом браузере, не улетает никуда, кроме самого выбранного провайдера.</p>
+      </div>
+      <div class="onboard-card">
+        <div class="onboard-h">Остальное</div>
+        <p><b>Слабые места</b> — автоматически собирает темы с низкой уверенностью (1-2) плюс разборы квизов. <b>Дневник</b> — календарь с заметками и сессиями Pomodoro. Кнопка-помидор внизу слева — таймер с логированием сессий прямо в календарь. Переключатель RU/EN вверху меняет язык всего интерфейса.</p>
+      </div>
     </div>`;
   }
-  return `<div class="onboard-help">
-      <div class="onboard-h">Getting started</div>
-      <p>Open <b>"Source"</b> at the top → type your textbook or course name → either paste the table of contents as text, or upload a file (<b>PDF</b> or .txt) via "Choose File" → click <b>"Generate Blocks"</b>. The AI breaks the material into topics and subtopics automatically.</p>
-
-      <div class="onboard-h">Reading the PDF by page</div>
-      <p>If a PDF was actually selected during generation, some topics get a <b>"📄 Read"</b> button that opens the book right at the matching page. Accuracy depends on how well the book's own table of contents lines up with its real content — occasionally a page may be off.</p>
-      <p>Inside the reader: <b>select text</b> with your finger or mouse — a bar appears with 5 highlight colors, an eraser (⌫), and a <b>"Clarify"</b> button (sends the snippet to the tutor for an explanation). The <b>🔖</b> button up top bookmarks the current page — independent per topic. The notes field under the header — anything typed or pasted there drops straight into today's diary entry.</p>
-
-      <div class="onboard-h">Tutor and Quiz</div>
-      <p>The <b>"🎓 Tutor Mode"</b> panel collapses/expands on any page of the app. Ask it anything about the topic — it follows whichever topic is currently open. The <b>"Quiz"</b> tab runs a step-by-step clinical case with a debrief at the end; every finished debrief is saved under <b>"Weak Spots"</b> for later review.</p>
-
-      <div class="onboard-h">AI providers</div>
-      <p>Pick <b>Gemini, Claude, GPT, DeepSeek, or Grok</b> at the top — each has its own API key slot, stored only in this browser and sent only to the provider you chose.</p>
-
-      <div class="onboard-h">Everything else</div>
-      <p><b>Weak Spots</b> auto-collects low-confidence topics (1-2) plus quiz debriefs. <b>Diary</b> is a calendar with notes and Pomodoro sessions. The tomato button bottom-left is a Pomodoro timer that logs sessions straight into the calendar. The RU/EN toggle up top switches the whole interface's language.</p>
+  return `<div class="onboard-grid">
+      <div class="onboard-card">
+        <div class="onboard-h">Getting started</div>
+        <p>Open <b>"Source"</b> at the top → type your textbook or course name → either paste the table of contents as text, or upload a file (<b>PDF</b> or .txt) via "Choose File" → click <b>"Generate Blocks"</b>. The AI breaks the material into topics and subtopics automatically.</p>
+      </div>
+      <div class="onboard-card">
+        <div class="onboard-h">Reading the PDF by page</div>
+        <p>If a PDF was actually selected during generation, some topics get a <b>"📄 Read"</b> button that opens the book right at the matching page. Accuracy depends on how well the book's own table of contents lines up with its real content — occasionally a page may be off.</p>
+        <p>Inside the reader: <b>select text</b> with your finger or mouse — a bar appears with 5 highlight colors, an eraser (⌫), and a <b>"Clarify"</b> button (sends the snippet to the tutor for an explanation). The <b>🔖</b> button up top bookmarks the current page — independent per topic. The notes field under the header — anything typed or pasted there drops straight into today's diary entry.</p>
+      </div>
+      <div class="onboard-card">
+        <div class="onboard-h">Tutor and Quiz</div>
+        <p>The <b>"🎓 Tutor Mode"</b> panel collapses/expands on any page of the app. Ask it anything about the topic — it follows whichever topic is currently open. The <b>"Quiz"</b> tab runs a step-by-step clinical case with a debrief at the end; every finished debrief is saved under <b>"Weak Spots"</b> for later review.</p>
+      </div>
+      <div class="onboard-card">
+        <div class="onboard-h">AI providers</div>
+        <p>Pick <b>Gemini, Claude, GPT, DeepSeek, or Grok</b> at the top — each has its own API key slot, stored only in this browser and sent only to the provider you chose.</p>
+      </div>
+      <div class="onboard-card">
+        <div class="onboard-h">Everything else</div>
+        <p><b>Weak Spots</b> auto-collects low-confidence topics (1-2) plus quiz debriefs. <b>Diary</b> is a calendar with notes and Pomodoro sessions. The tomato button bottom-left is a Pomodoro timer that logs sessions straight into the calendar. The RU/EN toggle up top switches the whole interface's language.</p>
+      </div>
     </div>`;
 }
 function renderGrids(prefix){
@@ -2179,7 +2210,7 @@ function renderGrids(prefix){
   if(!container) return;
   if(!activeSourceId || !MODULES.length){
     const msg = uiLang==='ru' ? 'Пока нет ни одного источника. Открой "Источник" выше и загрузи свой (PDF или текст).' : 'No source yet. Open "Source" above and upload one (PDF or text).';
-    container.innerHTML = `<div class="empty">${msg}</div>${prefix==='grid' ? noSourceHelp() : ''}`;
+    container.innerHTML = `<div class="onboard-wrap"><div class="empty">${msg}</div>${prefix==='grid' ? noSourceHelp() : ''}</div>`;
     return;
   }
   // preserve category order by first appearance in the full module list
