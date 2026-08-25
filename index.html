@@ -144,7 +144,7 @@
   .source-item .src-attach{cursor:pointer; font-size:13px;}
 
   .module-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px;}
-  #grid-container, #mgrid-container{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:22px 30px; align-items:start;}
+  #grid-container, #mgrid-container{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:22px 30px; align-items:start;}
   .category-block{display:flex; flex-direction:column; min-width:0;}
   .category-block .section-label{margin:0 0 10px;}
   .module-card{
@@ -497,8 +497,9 @@
     .brand{justify-content:space-between;}
     .countdown{justify-content:flex-start; text-align:left;}
     main{padding:16px 10px;}
+    #grid-container, #mgrid-container{grid-template-columns:1fr;}
     .module-grid{grid-template-columns:1fr;}
-    .category-block{width:100%;}
+    .category-block{width:100%; grid-column:span 1 !important;}
   }
 </style>
 </head>
@@ -2144,7 +2145,11 @@ function renderGrids(prefix){
   order.forEach(cat=>{
     const inCat = active.filter(m=>m.cat===cat);
     if(!inCat.length) return; // empty categories are skipped entirely, not shown as empty placeholders
-    html += `<div class="category-block"><div class="section-label">${catLabel(cat)}</div><div class="module-grid">${inCat.map(moduleCard).join('')}</div></div>`;
+    // span 1 track per card, up to 3 tracks max (so a category with 6 cards shows ~3 per
+    // row over 2 rows internally, while a category with 1-2 cards stays narrow and tiles
+    // next to other narrow categories instead of stretching full-width)
+    const span = Math.min(3, Math.max(1, inCat.length));
+    html += `<div class="category-block" style="grid-column: span ${span};"><div class="section-label">${catLabel(cat)}</div><div class="module-grid">${inCat.map(moduleCard).join('')}</div></div>`;
   });
   container.innerHTML = html;
 }
