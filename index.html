@@ -266,6 +266,8 @@
     background:var(--paper); border-radius:8px; max-width:980px; width:100%; max-height:94vh;
     display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.4);
   }
+  @media (min-width:1300px){ .reader-card{max-width:1300px;} }
+  @media (min-width:1700px){ .reader-card{max-width:1600px;} }
   .reader-top{display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--line);}
   .reader-title{font-family:var(--mono); font-size:12px; color:var(--teal); font-weight:600;}
   .reader-close{background:none; border:none; font-size:18px; color:var(--ink-soft); cursor:pointer; padding:2px 6px;}
@@ -2390,7 +2392,7 @@ async function renderReaderPage(num){
   const textLayer = document.getElementById('reader-text-layer');
   const unscaledViewport = page.getViewport({scale:1});
   const dpr = window.devicePixelRatio || 1;
-  const cssScale = Math.min((wrap.clientWidth-20) / unscaledViewport.width, 2.2);
+  const cssScale = Math.min((wrap.clientWidth-20) / unscaledViewport.width, 3.2);
   const renderScale = Math.max(cssScale, 0.5) * dpr;
   const viewport = page.getViewport({scale: renderScale});
   canvas.width = viewport.width;
