@@ -2113,15 +2113,17 @@ function renderModuleDetail(){
     ).join('');
     const delBtn = s.isCustom ? `<span class="del-x" onclick="deleteCustom('${mod.id}','${s.subId}')">✕</span>` : '';
     const labelEsc = s.label.replace(/'/g,"\\'");
+    const canRead = sources[activeSourceId] && sources[activeSourceId].hasPdf && mod.pages;
+    const rowClick = canRead ? `openReader('${mod.id}')` : `document.getElementById('chk-${mod.id}-${s.subId}').click()`;
     return `<div class="item-row">
-      <input type="checkbox" id="chk-${mod.id}-${s.subId}" ${st.checked?'checked':''} onchange="setItemState('${mod.id}','${s.subId}',{checked:this.checked})">
+      <input type="checkbox" id="chk-${mod.id}-${s.subId}" ${st.checked?'checked':''} onchange="event.stopPropagation(); setItemState('${mod.id}','${s.subId}',{checked:this.checked})">
       <div class="item-body">
-        <div class="item-name ${st.checked?'done':''}" style="cursor:pointer;" onclick="document.getElementById('chk-${mod.id}-${s.subId}').click()">${s.label}</div>
+        <div class="item-name ${st.checked?'done':''}" style="cursor:pointer;" onclick="${rowClick}">${s.label}</div>
         <div class="item-controls">
           <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);">${t('confidence_label')}</span>
           <div class="conf-btns">${confBtns}</div>
-          <button class="lecture-btn" onclick="requestLecture('${mod.id}','${labelEsc}')">${t('lecture_btn')}</button>
-          <input class="note-input" placeholder="${t('note_input_placeholder')}" value="${(st.note||'').replace(/"/g,'&quot;')}" onblur="setItemState('${mod.id}','${s.subId}',{note:this.value})">
+          <button class="lecture-btn" onclick="event.stopPropagation(); requestLecture('${mod.id}','${labelEsc}')">${t('lecture_btn')}</button>
+          <input class="note-input" placeholder="${t('note_input_placeholder')}" value="${(st.note||'').replace(/"/g,'&quot;')}" onblur="setItemState('${mod.id}','${s.subId}',{note:this.value})" onclick="event.stopPropagation()">
           ${delBtn}
         </div>
       </div>
