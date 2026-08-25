@@ -276,23 +276,20 @@
   .reader-status{text-align:center; font-size:11.5px; color:var(--ink-soft); padding:0 12px 10px;}
 
   .reader-tools{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-  .reader-pen{
-    width:24px; height:24px; border-radius:50%; border:2px solid var(--line); cursor:pointer; padding:0;
-    background-color:var(--pen-color, #ccc);
+  .reader-bookmark-btn{
+    background:none; border:none; font-size:20px; cursor:pointer; padding:0 4px; opacity:.4; filter:grayscale(1);
+    transition:opacity .15s, filter .15s;
   }
-  .reader-pen[data-color="red"]{--pen-color:#e05a4e;}
-  .reader-pen[data-color="yellow"]{--pen-color:#e8c547;}
-  .reader-pen[data-color="green"]{--pen-color:#5aa96c;}
-  .reader-pen[data-color="blue"]{--pen-color:#5aa9d6;}
-  .reader-pen[data-color="orange"]{--pen-color:#e8944a;}
-  .reader-pen.active{border-color:var(--teal-deep); box-shadow:0 0 0 2px var(--teal-deep);}
-  .reader-pen.eraser{background:var(--paper); color:var(--ink-soft); font-size:12px; line-height:1;}
-  .reader-pen.eraser.active{background:var(--red-bg); border-color:var(--red); color:var(--red);}
-  .reader-notes-btn{background:none; border:none; font-size:18px; cursor:pointer; padding:0 4px;}
+  .reader-bookmark-btn.active{opacity:1; filter:none;}
+  .sel-erase{
+    width:26px; height:26px; border-radius:50%; border:1px solid rgba(255,255,255,.5); cursor:pointer;
+    background:var(--red-bg); color:var(--red); font-size:13px; line-height:1; flex-shrink:0;
+  }
 
-  .reader-notes-panel{display:none; gap:8px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--bg);}
+  .reader-notes-panel{display:none; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line); background:var(--bg);}
   .reader-notes-panel.open{display:flex;}
-  .reader-notes-panel textarea{flex:1; font-family:var(--sans); font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:2px; min-height:44px; resize:vertical;}
+  .reader-notes-panel textarea{flex:1; font-family:var(--sans); font-size:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; min-height:64px; resize:vertical; line-height:1.4;}
+  .reader-notes-panel .btn{align-self:stretch; padding:0 18px;}
 
   .reader-page-inner{position:relative; display:inline-block;}
   .reader-text-layer{
@@ -337,7 +334,7 @@
   .setup-box{background:var(--amber-bg); border:1px solid var(--amber); border-radius:var(--radius); padding:14px 16px; margin-bottom:18px; font-size:13px;}
 
   .tutor-panel{
-    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    position:fixed; left:0; right:0; bottom:0; z-index:260;
     background:var(--paper); border-top:1px solid var(--line); border-radius:10px 10px 0 0;
     max-height:48px; overflow:hidden; transition:max-height .22s ease;
     box-shadow:0 -3px 14px rgba(0,0,0,.10);
@@ -609,17 +606,11 @@
     <div class="reader-top">
       <div class="reader-title" id="reader-title"></div>
       <div class="reader-tools">
-        <button class="reader-pen" data-color="red" onclick="setReaderPen('red')" title="Красный"></button>
-        <button class="reader-pen" data-color="yellow" onclick="setReaderPen('yellow')" title="Жёлтый"></button>
-        <button class="reader-pen" data-color="green" onclick="setReaderPen('green')" title="Зелёный"></button>
-        <button class="reader-pen" data-color="blue" onclick="setReaderPen('blue')" title="Голубой"></button>
-        <button class="reader-pen" data-color="orange" onclick="setReaderPen('orange')" title="Оранжевый"></button>
-        <button class="reader-pen eraser" id="reader-eraser-btn" onclick="toggleReaderEraser()" title="Ластик">⌫</button>
-        <button class="reader-notes-btn" onclick="toggleReaderNotes()">📝</button>
+        <button class="reader-bookmark-btn" id="reader-bookmark-btn" onclick="toggleReaderBookmark()" title="Закладка">🔖</button>
       </div>
       <button class="reader-close" onclick="closeReader()">✕</button>
     </div>
-    <div class="reader-notes-panel" id="reader-notes-panel">
+    <div class="reader-notes-panel open" id="reader-notes-panel">
       <textarea id="reader-notes-input" placeholder="Скопируй текст из PDF или напиши заметку — упадёт в дневник сегодняшним числом"></textarea>
       <button class="btn" onclick="saveReaderNote()">↵</button>
     </div>
@@ -636,6 +627,7 @@
       <button class="sel-color" data-color="green" onclick="applySelHighlight('green')"></button>
       <button class="sel-color" data-color="blue" onclick="applySelHighlight('blue')"></button>
       <button class="sel-color" data-color="orange" onclick="applySelHighlight('orange')"></button>
+      <button class="sel-erase" onclick="eraseSelectionAction()" title="Стереть хайлайт">⌫</button>
       <button class="sel-clarify" onclick="clarifySelection()">Уточнить</button>
     </div>
     <div class="reader-controls">
@@ -1005,6 +997,7 @@ let state = {
   sessions: {},   // 'YYYY-MM-DD' -> [{min, moduleId, moduleName, pct, ts}]
   quizSessions: {}, // sessionId -> {ts, moduleId, moduleName, debrief}
   pdfHighlights: {}, // '<sourceId>_p<page>' -> [{id, color, startItem, startOffset, endItem, endOffset, text}]
+  pdfBookmarks: {}, // moduleId -> page number
   targetDate: '',
   customSources: {}, // sourceId -> {name, modules}
   activeSourceId: 'firstaid',
@@ -1544,6 +1537,7 @@ function attachDbListener(){
     if(remote.sessions) deepMerge(state.sessions, remote.sessions);
     if(remote.quizSessions) deepMerge(state.quizSessions, remote.quizSessions);
     if(remote.pdfHighlights) deepMerge(state.pdfHighlights, remote.pdfHighlights);
+    if(remote.pdfBookmarks) deepMerge(state.pdfBookmarks, remote.pdfBookmarks);
     if(remote.targetDate !== undefined) state.targetDate = remote.targetDate;
     if(remote.selectedModules !== undefined) state.selectedModules = remote.selectedModules;
     if(remote.customSources) deepMerge(state.customSources, remote.customSources);
@@ -2322,8 +2316,6 @@ let readerSourceId = null;
 let readerModId = null;
 let readerCurrentPage = 1;
 let readerRendering = false;
-let readerPenColor = null;
-let readerEraserActive = false;
 let readerTextLayerOk = false;
 let currentReaderSelectionRange = null;
 let currentReaderSelectionText = '';
@@ -2338,10 +2330,8 @@ async function openReader(modId){
   document.getElementById('reader-title').textContent = mod.name;
   overlay.classList.add('show');
   statusEl.textContent = '';
-  readerPenColor = null;
-  readerEraserActive = false;
-  updatePenButtons();
   clearReaderSelection();
+  updateBookmarkButton();
 
   if(!src.hasPdf){
     statusEl.textContent = uiLang==='ru' ? 'Для этого источника не был загружен PDF.' : 'No PDF was uploaded for this source.';
@@ -2362,7 +2352,8 @@ async function openReader(modId){
       readerSourceId = activeSourceId;
     }
     document.getElementById('reader-total-pages').textContent = readerPdfDoc.numPages;
-    const startPage = mod.pages ? mod.pages.from : 1;
+    const bookmarked = state.pdfBookmarks[modId];
+    const startPage = bookmarked || (mod.pages ? mod.pages.from : 1);
     statusEl.textContent = '';
     await renderReaderPage(Math.min(Math.max(startPage,1), readerPdfDoc.numPages));
   }catch(e){
@@ -2440,7 +2431,29 @@ async function renderReaderPage(num){
     restorePageHighlights();
   }catch(e){ console.error('text layer failed', e); readerTextLayerOk = false; }
 
+  updateBookmarkButton();
   readerRendering = false;
+}
+
+function toggleReaderBookmark(){
+  if(!readerModId) return;
+  if(state.pdfBookmarks[readerModId] === readerCurrentPage){
+    delete state.pdfBookmarks[readerModId];
+    writeKey('pdfBookmarks/'+readerModId, null);
+  } else {
+    state.pdfBookmarks[readerModId] = readerCurrentPage;
+    writeKey('pdfBookmarks/'+readerModId, readerCurrentPage);
+  }
+  updateBookmarkButton();
+}
+function updateBookmarkButton(){
+  const btn = document.getElementById('reader-bookmark-btn');
+  if(!btn || !readerModId) return;
+  const isBookmarked = state.pdfBookmarks[readerModId] === readerCurrentPage;
+  btn.classList.toggle('active', isBookmarked);
+  btn.title = isBookmarked
+    ? (uiLang==='ru' ? 'Закладка на этой странице (нажми, чтобы убрать)' : 'Bookmarked here (tap to remove)')
+    : (uiLang==='ru' ? 'Поставить закладку на этой странице' : 'Bookmark this page');
 }
 
 function itemOffsetFromNode(node, offset){
@@ -2470,24 +2483,6 @@ function restorePageHighlights(){
     const range = buildRangeFromRecord(rec);
     if(range && readerHighlightSets[rec.color]) readerHighlightSets[rec.color].add(range);
   });
-}
-
-function setReaderPen(color){
-  readerEraserActive = false;
-  readerPenColor = (readerPenColor === color) ? null : color;
-  updatePenButtons();
-}
-function toggleReaderEraser(){
-  readerPenColor = null;
-  readerEraserActive = !readerEraserActive;
-  updatePenButtons();
-}
-function updatePenButtons(){
-  document.querySelectorAll('.reader-pen[data-color]').forEach(b=>{
-    b.classList.toggle('active', b.dataset.color === readerPenColor);
-  });
-  const eraserBtn = document.getElementById('reader-eraser-btn');
-  if(eraserBtn) eraserBtn.classList.toggle('active', readerEraserActive);
 }
 
 function showSelBar(){
@@ -2555,23 +2550,13 @@ document.addEventListener('selectionchange', ()=>{
   if(!layer.contains(range.commonAncestorContainer)) return;
   currentReaderSelectionRange = range.cloneRange();
   currentReaderSelectionText = sel.toString();
-  if(!readerEraserActive) showSelBar();
+  showSelBar();
 });
-
-function handleReaderPointerUp(){
-  if(!document.getElementById('reader-overlay').classList.contains('show')) return;
+function eraseSelectionAction(){
   if(!currentReaderSelectionRange) return;
-  if(readerEraserActive){
-    eraseOverlappingHighlights(currentReaderSelectionRange);
-    clearReaderSelection();
-    return;
-  }
-  if(readerPenColor){
-    applySelHighlight(readerPenColor);
-  }
+  eraseOverlappingHighlights(currentReaderSelectionRange);
+  clearReaderSelection();
 }
-document.addEventListener('mouseup', handleReaderPointerUp);
-document.addEventListener('touchend', ()=>{ setTimeout(handleReaderPointerUp, 30); });
 
 function clarifySelection(){
   if(!currentReaderSelectionText) return;
