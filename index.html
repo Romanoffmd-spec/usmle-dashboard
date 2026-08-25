@@ -2007,26 +2007,60 @@ async function requestLecture(modId, label){
 
 function quizSystemPrompt(mod){
   const subjectList = mod.subs.map(s=>typeof s==='string'?s:s.label).join(', ');
-  return `Ты ведёшь пошаговый интерактивный клинический кейс для подготовки ординатора (PGY-2, общая хирургия) к USMLE Step 1. Тема блока: "${mod.name}" (подтемы: ${subjectList}).
+  return `Ты ведёшь пошаговый интерактивный клинический кейс для подготовки ординатора (PGY-2, общая хирургия) к USMLE Step 1 и ABSITE. Тема блока: "${mod.name}" (подтемы: ${subjectList}).
 
 ПРАВИЛА:
-1. Придумай правдоподобный кейс уровня USMLE Step 1 по этой теме. НЕ раскрывай диагноз сразу. Сначала дай только: возраст/пол пациента, жалобы, краткий анамнез (HPI), витальные показатели — и спроси, что он хочет сделать дальше (осмотр, анамнез подробнее, лабораторные, инструментальные).
+1. Придумай правдоподобный кейс уровня USMLE Step 1 / ABSITE по этой теме. НЕ раскрывай диагноз сразу. Сначала дай только: возраст/пол пациента, жалобы, краткий анамнез (HPI), витальные показатели — и спроси, что он хочет сделать дальше (осмотр, анамнез подробнее, лабораторные, инструментальные).
 2. Дальше пользователь будет запрашивать конкретные данные. Выдавай СТРОГО то, что запрошено, не больше. Если какие-то данные заранее не были определены в твоём внутреннем плане кейса — придумай их правдоподобно на лету, оставаясь строго согласованным с уже выданной информацией и вероятным диагнозом; никогда не противоречь тому, что уже сообщил ранее в этом же диалоге.
 3. Если пользователь предлагает диагноз, механизм или план лечения — не подтверждай сразу. Спроси "почему ты так думаешь" или на основании чего, затем дай честную обратную связь.
-4. Когда пользователь просит завершить кейс — дай финальный структурированный разбор: 1) какой был реальный диагноз и патогенез (своими словами, НИКОГДА дословно из учебников), 2) какие из запрошенных им исследований были реально необходимы, какие избыточны, 3) сошлись на конкретные официальные гайдлайны/протоколы там, где уместно (например ACC/AHA, IDSA, ATLS, Surviving Sepsis Campaign, USPSTF, NCCN) и коротко объясни их логику — без дословного цитирования текста гайдлайнов.
+4. Когда пользователь просит завершить кейс — дай финальный структурированный разбор: 1) какой был реальный диагноз и патогенез (своими словами, НИКОГДА дословно из учебников), 2) какие из запрошенных им исследований были реально необходимы, какие избыточны, 3) сошлись на конкретные официальные гайдлайны/протоколы там, где уместно (например ACC/AHA, IDSA, ATLS, Surviving Sepsis Campaign, USPSTF, NCCN) и коротко объясни их логику — без дословного цитирования текста гайдлайнов. Изредка (не каждый раз, примерно раз в 3-4 кейса) можешь ПОСЛЕ разбора добавить один короткий тестовый вопрос с вариантами A-D по ключевому моменту этого кейса — как закрепление, не вместо самого разбора.
 5. Отвечай кратко и структурированно, форматируй под мобильный экран. ${t('ai_instruction')}
 
 ФОРМАТИРОВАНИЕ (строго): пиши обычным разговорным текстом, как живой диалог, а не документ. НЕ используй markdown — никаких ### заголовков, **звёздочек** для жирного, LaTeX-формул ($$...$$), горизонтальных линий (---). Списки — обычными предложениями через тире или абзацами, без нумерации точками-звёздочками.`;
 }
+function generalQuizSystemPrompt(){
+  const completed = [];
+  MODULES.forEach(mod=>{
+    allSubsFor(mod).forEach(s=>{
+      const st = getItemState(mod.id, s.subId);
+      if(st.checked) completed.push(s.label);
+    });
+  });
+  const topicPool = completed.length
+    ? completed.join('; ')
+    : (uiLang==='ru' ? '(пользователь пока не отметил ни одной темы пройденной — выбери сам разумную тему общей хирургии уровня ABSITE/USMLE Step 1)' : "(the user hasn't marked any topics complete yet — pick a reasonable general surgery topic at ABSITE/USMLE Step 1 level yourself)");
+  if(uiLang==='ru'){
+    return `Ты ведёшь пошаговый интерактивный клинический кейс для подготовки ординатора (PGY-2, общая хирургия) к USMLE Step 1 и ABSITE. Тема не привязана к конкретному блоку — выбери СЛУЧАЙНУЮ тему из списка тем, которые пользователь уже отметил пройденными: ${topicPool}
+
+ПРАВИЛА:
+1. Сначала кратко (одной строкой) укажи, по какой теме будет кейс, затем сразу начни кейс уровня USMLE Step 1 / ABSITE по ней. НЕ раскрывай диагноз сразу. Дай только: возраст/пол пациента, жалобы, краткий анамнез (HPI), витальные показатели — и спроси, что он хочет сделать дальше.
+2. Дальше пользователь будет запрашивать конкретные данные. Выдавай СТРОГО то, что запрошено. Данные, не определённые заранее, придумывай на лету, оставаясь согласованным с уже сказанным.
+3. Если пользователь предлагает диагноз или план — не подтверждай сразу, спроси обоснование, затем дай честную обратную связь.
+4. По запросу "завершить кейс" — дай финальный разбор: реальный диагноз и патогенез своими словами, какие исследования были нужны/избыточны, ссылки на официальные гайдлайны где уместно с кратким объяснением логики. Изредка (не каждый раз) можешь ПОСЛЕ разбора добавить один короткий тестовый вопрос с вариантами A-D по ключевому моменту — как закрепление.
+5. Отвечай кратко, форматируй под мобильный экран. ${t('ai_instruction')}
+
+ФОРМАТИРОВАНИЕ: обычный разговорный текст, без markdown (без ###, **, LaTeX, ---).`;
+  }
+  return `You are running a step-by-step interactive clinical case to prepare a general surgery resident (PGY-2) for USMLE Step 1 and ABSITE. The topic isn't tied to one specific block — pick a RANDOM topic from the list the user has already marked complete: ${topicPool}
+
+RULES:
+1. First briefly (one line) name which topic the case is on, then immediately start a USMLE Step 1 / ABSITE-level case on it. Don't reveal the diagnosis right away. Give only: patient age/sex, chief complaint, brief HPI, vitals — then ask what they want to do next.
+2. The user will request specific data. Give STRICTLY what's asked. Improvise anything not pre-planned on the fly, staying consistent with what's already been said.
+3. If the user proposes a diagnosis or plan, don't confirm immediately — ask for their reasoning first, then give honest feedback.
+4. On "finish case" — give a final structured debrief: real diagnosis and pathogenesis in your own words, which workup was necessary vs excessive, cite relevant official guidelines where appropriate with a brief explanation of the logic. Occasionally (not every time) you may add one short multiple-choice reinforcement question (A-D) on a key point AFTER the debrief.
+5. Keep answers concise, formatted for mobile. ${t('ai_instruction')}
+
+FORMATTING: plain conversational text, no markdown (no ###, **, LaTeX, ---).`;
+}
 async function startQuizCase(modId){
-  if(modId === '__general__'){ alert(uiLang==='ru' ? 'Сначала выбери конкретную тему в разделе Темы.' : 'Pick a specific topic in Topics first.'); return; }
-  const mod = resolveModule(modId);
-  quizChats[modId] = [{role:'system-hidden', content: uiLang === 'ru' ? 'Начни новый кейс по этой теме.' : 'Start a new case on this topic.'}];
+  const isGeneral = modId === '__general__';
+  quizChats[modId] = [{role:'system-hidden', content: uiLang === 'ru' ? 'Начни новый кейс.' : 'Start a new case.'}];
   saveQuizChats();
-  await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
+  const systemPrompt = isGeneral ? generalQuizSystemPrompt() : quizSystemPrompt(resolveModule(modId));
+  await callClaude(modId, quizChats, saveQuizChats, systemPrompt);
 }
 async function sendQuizMessage(modId){
-  const mod = resolveModule(modId);
+  const isGeneral = modId === '__general__';
   const input = document.getElementById('tutor-input-'+modId);
   const text = input.value.trim();
   if(!text) return;
@@ -2034,14 +2068,17 @@ async function sendQuizMessage(modId){
   quizChats[modId].push({role:'user', content:text});
   input.value = '';
   saveQuizChats();
-  await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
+  const systemPrompt = isGeneral ? generalQuizSystemPrompt() : quizSystemPrompt(resolveModule(modId));
+  await callClaude(modId, quizChats, saveQuizChats, systemPrompt);
 }
 async function finishQuizCase(modId){
+  const isGeneral = modId === '__general__';
   const mod = resolveModule(modId);
   if(!quizChats[modId] || !quizChats[modId].length) return;
   quizChats[modId].push({role:'system-hidden', content:'Заверши кейс и дай финальный разбор по правилу 4.'});
   saveQuizChats();
-  await callClaude(modId, quizChats, saveQuizChats, quizSystemPrompt(mod));
+  const systemPrompt = isGeneral ? generalQuizSystemPrompt() : quizSystemPrompt(mod);
+  await callClaude(modId, quizChats, saveQuizChats, systemPrompt);
   // save the debrief as a permanent session record so failed/weak cases accumulate for review
   const lastMsg = quizChats[modId][quizChats[modId].length-1];
   if(lastMsg && lastMsg.role === 'assistant'){
