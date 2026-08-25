@@ -1157,16 +1157,16 @@ function deleteSource(id){
 function slugify(str){
   return 'src_' + str.toLowerCase().replace(/[^a-z0-9а-яё]+/gi,'_').slice(0,30) + '_' + Date.now().toString(36);
 }
-async function extractPdfText(file){
+async function extractPdfText(file, onProgress){
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({data:buf}).promise;
   let text = '';
-  const maxPages = Math.min(pdf.numPages, 60);
+  const maxPages = Math.min(pdf.numPages, 900); // generous safety cap, not meant to bind normal books
   for(let i=1; i<=maxPages; i++){
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     text += `[PAGE ${i}]\n` + content.items.map(it=>it.str).join(' ') + '\n';
-    if(text.length > 90000) break;
+    if(onProgress && i % 25 === 0) onProgress(i, pdf.numPages);
   }
   return {text, totalPages: pdf.numPages};
 }
@@ -1188,13 +1188,17 @@ async function generateSource(){
   let text = pasteEl.value.trim();
   let pdfFile = null;
   let totalPages = null;
+  let fullBookText = '';
   try{
     if(!text && fileInput.files[0]){
       statusEl.textContent = uiLang==='ru' ? 'Читаю файл…' : 'Reading file…'; statusEl.className='source-status';
       const file = fileInput.files[0];
       if(file.name.toLowerCase().endsWith('.pdf')){
-        const extracted = await extractPdfText(file);
+        const extracted = await extractPdfText(file, (done, total)=>{
+          statusEl.textContent = uiLang==='ru' ? `Читаю файл: ${done}/${total} стр.…` : `Reading file: ${done}/${total} pages…`;
+        });
         text = extracted.text;
+        fullBookText = extracted.text;
         totalPages = extracted.totalPages;
         pdfFile = file;
       } else {
@@ -1294,6 +1298,46 @@ async function generateSource(){
       const nextStart = i+1 < withStart.length ? withStart[i+1].startPage : (totalPages || m.startPage+8);
       m.pages = {from: m.startPage, to: Math.max(m.startPage, nextStart-1)};
     });
+
+    // per-subtopic page detection: bounded to each module's OWN already-correct chapter
+    // range, using the full locally-extracted book text (not just the excerpt sent to the
+    // AI). Bounding the search this way avoids the earlier failure mode where a word
+    // matched some unrelated chapter that happens to share vocabulary.
+    if(pdfFile && fullBookText){
+      const SUBTOPIC_STOPWORDS = new Set(['and','the','for','with','from','into','their','which','these','those','about','after','before','during','through','without','within','between','other','general','basic','principles','overview','introduction','common','various','different','specific']);
+      const fullMarkers = [];
+      const markerRe = /\[PAGE (\d+)\]/g;
+      let mm;
+      while((mm = markerRe.exec(fullBookText))){ fullMarkers.push({index: mm.index, page: parseInt(mm[1],10)}); }
+      function pageAtIdx(markers, idx){
+        let result = markers.length ? markers[0].page : null;
+        for(const mk of markers){ if(mk.index<=idx) result = mk.page; else break; }
+        return result;
+      }
+      rawModules.forEach(m=>{
+        if(!m.pages){ m.subs = m.subs.map(label=>({label, page:null})); return; }
+        let startIdx = 0, endIdx = fullBookText.length;
+        for(const mk of fullMarkers){ if(mk.page === m.pages.from){ startIdx = mk.index; break; } }
+        for(const mk of fullMarkers){ if(mk.page === m.pages.to+1){ endIdx = mk.index; break; } }
+        const sliceText = fullBookText.slice(startIdx, endIdx);
+        const sliceLower = sliceText.toLowerCase();
+        const sliceMarkers = [];
+        const sliceRe = /\[PAGE (\d+)\]/g;
+        let sm;
+        while((sm = sliceRe.exec(sliceText))){ sliceMarkers.push({index: sm.index, page: parseInt(sm[1],10)}); }
+        if(!sliceMarkers.length) sliceMarkers.push({index:0, page:m.pages.from});
+        m.subs = m.subs.map(label=>{
+          const words = label.toLowerCase().split(/[^a-zа-яё0-9]+/).filter(w=>w.length>=5 && !SUBTOPIC_STOPWORDS.has(w));
+          let page = null;
+          for(const w of words){
+            const idx = sliceLower.indexOf(w);
+            if(idx !== -1){ page = pageAtIdx(sliceMarkers, idx); break; }
+          }
+          return {label, page};
+        });
+      });
+    }
+
     const modules = rawModules.map(({startPage, ...rest})=>rest);
     if(!state.customSources) state.customSources = {};
     const sourceMeta = {name, modules, hasPdf: !!pdfFile, totalPages: totalPages||null};
@@ -1307,13 +1351,15 @@ async function generateSource(){
     pasteEl.value = '';
     fileInput.value = '';
     const withPages = modules.filter(m=>m.pages).length;
+    let subTotal=0, subWithPage=0;
+    modules.forEach(m=>{ (m.subs||[]).forEach(s=>{ subTotal++; if(s && typeof s==='object' && s.page) subWithPage++; }); });
     let statusMsg;
     if(uiLang==='ru'){
       statusMsg = `Готово — ${modules.length} блоков создано.`;
-      if(pdfFile) statusMsg += ` PDF прочитан (${totalPages||'?'} стр. всего), страницы найдены для ${withPages} из ${modules.length} тем.`;
+      if(pdfFile) statusMsg += ` PDF прочитан (${totalPages||'?'} стр. всего), страницы глав найдены для ${withPages} из ${modules.length} тем, точные страницы подтем — для ${subWithPage} из ${subTotal}.`;
     } else {
       statusMsg = `Done — ${modules.length} blocks created.`;
-      if(pdfFile) statusMsg += ` PDF read (${totalPages||'?'} pages total), page ranges found for ${withPages} of ${modules.length} topics.`;
+      if(pdfFile) statusMsg += ` PDF read (${totalPages||'?'} pages total), chapter pages found for ${withPages} of ${modules.length} topics, exact subtopic pages for ${subWithPage} of ${subTotal}.`;
     }
     statusEl.textContent = statusMsg;
     statusEl.className = 'source-status';
@@ -1872,7 +1918,7 @@ async function sendTutorText(modId, text){
   const isGeneral = mod.id === '__general__';
   const contextLine = isGeneral
     ? 'Конкретная тема пока не выбрана — если вопрос предполагает контекст темы, можешь уточнить или ответить в общем виде по USMLE Step 1.'
-    : `Сейчас он проходит блок "${mod.name}" (подтемы: ${mod.subs.join(', ')}).`;
+    : `Сейчас он проходит блок "${mod.name}" (подтемы: ${mod.subs.map(s=>typeof s==='string'?s:s.label).join(', ')}).`;
   const systemPrompt = `Ты — тьютор для подготовки к USMLE Step 1, помогаешь ординатору общей хирургии (PGY-2). ${contextLine} Объясняй механизмы своими словами, на уровне First Aid, но НИКОГДА не копируй текст учебников дословно. Поощряй активное вспоминание: если уместно, спроси его встречный вопрос вместо готового ответа. Отвечай кратко и по делу, форматируй для мобильного экрана. ${t('ai_instruction')}
 
 ФОРМАТИРОВАНИЕ (строго): пиши обычным разговорным текстом, как будто объясняешь вслух коллеге. НЕ используй markdown-разметку — никаких ### заголовков, **жирного текста** со звёздочками, LaTeX-формул ($$...$$), горизонтальных линий (---), нумерованных списков с точками через звёздочку. Если нужно перечислить несколько пунктов — пиши их как обычные предложения через тире или просто абзацами. Формулы записывай словами или простыми обозначениями (например "SV / compliance", а не LaTeX-дробь).`;
@@ -1901,7 +1947,7 @@ async function requestLecture(modId, label){
 }
 
 function quizSystemPrompt(mod){
-  const subjectList = mod.subs.join(', ');
+  const subjectList = mod.subs.map(s=>typeof s==='string'?s:s.label).join(', ');
   return `Ты ведёшь пошаговый интерактивный клинический кейс для подготовки ординатора (PGY-2, общая хирургия) к USMLE Step 1. Тема блока: "${mod.name}" (подтемы: ${subjectList}).
 
 ПРАВИЛА:
@@ -1959,7 +2005,11 @@ function setItemState(modId, subId, patch){
 }
 function allSubsFor(mod){
   const custom = (state.custom[mod.id] || []).map(c => ({subId:c.id, label:c.label, isCustom:true}));
-  const std = mod.subs.map((label,i) => ({subId:'s'+i, label, isCustom:false}));
+  const std = mod.subs.map((sub,i) => {
+    const label = typeof sub === 'string' ? sub : sub.label;
+    const page = (sub && typeof sub === 'object' && sub.page) ? sub.page : null;
+    return {subId:'s'+i, label, isCustom:false, page};
+  });
   return std.concat(custom);
 }
 function moduleStats(mod){
@@ -2114,7 +2164,7 @@ function renderModuleDetail(){
     const delBtn = s.isCustom ? `<span class="del-x" onclick="deleteCustom('${mod.id}','${s.subId}')">✕</span>` : '';
     const labelEsc = s.label.replace(/'/g,"\\'");
     const canRead = sources[activeSourceId] && sources[activeSourceId].hasPdf && mod.pages;
-    const rowClick = canRead ? `openReader('${mod.id}')` : `document.getElementById('chk-${mod.id}-${s.subId}').click()`;
+    const rowClick = canRead ? `openReader('${mod.id}', ${s.page || 'null'})` : `document.getElementById('chk-${mod.id}-${s.subId}').click()`;
     return `<div class="item-row">
       <input type="checkbox" id="chk-${mod.id}-${s.subId}" ${st.checked?'checked':''} onchange="event.stopPropagation(); setItemState('${mod.id}','${s.subId}',{checked:this.checked})">
       <div class="item-body">
@@ -2329,7 +2379,7 @@ let readerTextLayerOk = false;
 let currentReaderSelectionRange = null;
 let currentReaderSelectionText = '';
 
-async function openReader(modId){
+async function openReader(modId, targetPage){
   const mod = MODULES.find(m=>m.id===modId);
   const src = sources[activeSourceId];
   if(!mod || !src) return;
@@ -2362,7 +2412,7 @@ async function openReader(modId){
     }
     document.getElementById('reader-total-pages').textContent = readerPdfDoc.numPages;
     const bookmarked = state.pdfBookmarks[modId];
-    const startPage = bookmarked || (mod.pages ? mod.pages.from : 1);
+    const startPage = targetPage || bookmarked || (mod.pages ? mod.pages.from : 1);
     statusEl.textContent = '';
     await renderReaderPage(Math.min(Math.max(startPage,1), readerPdfDoc.numPages));
   }catch(e){
