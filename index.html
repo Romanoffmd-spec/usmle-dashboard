@@ -211,6 +211,11 @@
   .weak-item .wmod{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
   .weak-item .jump{font-family:var(--mono); font-size:11px; color:var(--teal); cursor:pointer; white-space:nowrap;}
   .empty{color:var(--ink-soft); font-size:13px; font-style:italic; padding:20px 0;}
+  .onboard-help{max-width:760px; margin-top:8px;}
+  .onboard-h{font-family:var(--mono); font-size:16px; font-weight:700; color:var(--teal-deep); margin:28px 0 8px; text-transform:uppercase; letter-spacing:.02em;}
+  .onboard-h:first-child{margin-top:0;}
+  .onboard-help p{font-size:16px; line-height:1.65; color:var(--ink); margin:0 0 4px;}
+  .onboard-help p b{font-weight:700; color:var(--teal-deep);}
 
   .cal-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
   .cal-month-label{font-family:var(--mono); font-size:15px; font-weight:700; color:var(--teal-deep);}
@@ -2130,12 +2135,51 @@ function catLabel(cat){
   if(cat === 'final') return t('sec_final');
   return cat; // custom sources: the AI-chosen category name is already the display label
 }
+function noSourceHelp(){
+  if(uiLang==='ru'){
+    return `<div class="onboard-help">
+      <div class="onboard-h">Как начать</div>
+      <p>Открой <b>"Источник"</b> вверху → впиши название своего учебника или курса → либо вставь текст оглавления, либо загрузи файл (<b>PDF</b> или .txt) кнопкой "Choose File" → нажми <b>"Сгенерировать блоки"</b>. ИИ разберёт материал на темы и подтемы автоматически.</p>
+
+      <div class="onboard-h">Чтение PDF по страницам</div>
+      <p>Если при генерации был реально выбран PDF-файл — у части тем появится кнопка <b>"📄 Read"</b>, которая откроет книгу сразу на нужной странице. Точность зависит от того, насколько хорошо совпало оглавление книги с её реальным содержимым — иногда страница может быть неточной.</p>
+      <p>Внутри читалки: <b>выделяй текст пальцем/мышкой</b> — появится панель с 5 цветами выделения, ластиком (⌫) и кнопкой <b>"Уточнить"</b> (отправляет фрагмент тьютору с просьбой объяснить). Кнопка <b>🔖</b> вверху — закладка на текущей странице, у каждой темы своя, независимая. Поле заметок под шапкой — всё, что там напишешь или вставишь, сразу падает в дневник сегодняшним числом.</p>
+
+      <div class="onboard-h">Тьютор и Квиз</div>
+      <p>Панель <b>"🎓 Тьютор мод"</b> сворачивается/разворачивается на любой странице приложения. Можно спрашивать что угодно по теме — она сама подстраивается под открытую тему. Вкладка <b>"Квиз"</b> — пошаговый клинический кейс с разбором в конце; каждый завершённый разбор сохраняется во вкладке <b>"Слабые места"</b> для пересмотра позже.</p>
+
+      <div class="onboard-h">Провайдеры ИИ</div>
+      <p>Вверху можно выбрать <b>Gemini, Claude, GPT, DeepSeek или Grok</b> — для каждого свой API-ключ, хранится только в этом браузере, не улетает никуда, кроме самого выбранного провайдера.</p>
+
+      <div class="onboard-h">Остальное</div>
+      <p><b>Слабые места</b> — автоматически собирает темы с низкой уверенностью (1-2) плюс разборы квизов. <b>Дневник</b> — календарь с заметками и сессиями Pomodoro. Кнопка-помидор внизу слева — таймер с логированием сессий прямо в календарь. Переключатель RU/EN вверху меняет язык всего интерфейса.</p>
+    </div>`;
+  }
+  return `<div class="onboard-help">
+      <div class="onboard-h">Getting started</div>
+      <p>Open <b>"Source"</b> at the top → type your textbook or course name → either paste the table of contents as text, or upload a file (<b>PDF</b> or .txt) via "Choose File" → click <b>"Generate Blocks"</b>. The AI breaks the material into topics and subtopics automatically.</p>
+
+      <div class="onboard-h">Reading the PDF by page</div>
+      <p>If a PDF was actually selected during generation, some topics get a <b>"📄 Read"</b> button that opens the book right at the matching page. Accuracy depends on how well the book's own table of contents lines up with its real content — occasionally a page may be off.</p>
+      <p>Inside the reader: <b>select text</b> with your finger or mouse — a bar appears with 5 highlight colors, an eraser (⌫), and a <b>"Clarify"</b> button (sends the snippet to the tutor for an explanation). The <b>🔖</b> button up top bookmarks the current page — independent per topic. The notes field under the header — anything typed or pasted there drops straight into today's diary entry.</p>
+
+      <div class="onboard-h">Tutor and Quiz</div>
+      <p>The <b>"🎓 Tutor Mode"</b> panel collapses/expands on any page of the app. Ask it anything about the topic — it follows whichever topic is currently open. The <b>"Quiz"</b> tab runs a step-by-step clinical case with a debrief at the end; every finished debrief is saved under <b>"Weak Spots"</b> for later review.</p>
+
+      <div class="onboard-h">AI providers</div>
+      <p>Pick <b>Gemini, Claude, GPT, DeepSeek, or Grok</b> at the top — each has its own API key slot, stored only in this browser and sent only to the provider you chose.</p>
+
+      <div class="onboard-h">Everything else</div>
+      <p><b>Weak Spots</b> auto-collects low-confidence topics (1-2) plus quiz debriefs. <b>Diary</b> is a calendar with notes and Pomodoro sessions. The tomato button bottom-left is a Pomodoro timer that logs sessions straight into the calendar. The RU/EN toggle up top switches the whole interface's language.</p>
+    </div>`;
+}
 function renderGrids(prefix){
   const active = activeModules();
   const container = document.getElementById(prefix+'-container');
   if(!container) return;
   if(!activeSourceId || !MODULES.length){
-    container.innerHTML = `<div class="empty">${uiLang==='ru' ? 'Пока нет ни одного источника. Открой "Источник" выше и загрузи свой (PDF или текст).' : 'No source yet. Open "Source" above and upload one (PDF or text).'}</div>`;
+    const msg = uiLang==='ru' ? 'Пока нет ни одного источника. Открой "Источник" выше и загрузи свой (PDF или текст).' : 'No source yet. Open "Source" above and upload one (PDF or text).';
+    container.innerHTML = `<div class="empty">${msg}</div>${prefix==='grid' ? noSourceHelp() : ''}`;
     return;
   }
   // preserve category order by first appearance in the full module list
