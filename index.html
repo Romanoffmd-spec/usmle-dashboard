@@ -505,6 +505,7 @@
     border:1px solid var(--line); border-radius:2px; padding:8px 12px; cursor:pointer;
   }
   .login-box .btn-secondary{width:100%; margin-top:8px;}
+  .forgot-link{display:block; text-align:center; font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); margin-top:12px; text-decoration:underline;}
   #login-error{color:var(--red); font-size:12.5px; margin-top:8px; min-height:16px;}
   .account-widget{display:flex; align-items:center; gap:8px;}
   #account-email{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
@@ -540,6 +541,7 @@
     <input type="password" id="login-password" data-i18n-placeholder="login_password" placeholder="пароль" autocomplete="current-password">
     <button class="btn" id="login-submit" data-i18n="login_btn">Войти</button>
     <button class="btn-secondary" id="login-signup" data-i18n="signup_btn">Создать аккаунт</button>
+    <a href="#" id="login-forgot" class="forgot-link" data-i18n="forgot_link">Забыл пароль?</a>
     <div id="login-error"></div>
   </div>
 </div>
@@ -829,7 +831,7 @@ const LANG = {
     log_title:'Дневник сессий', log_lede:'Плавающий график — без фиксированных часов. Помодоро-сессии записываются сюда автоматически.',
     log_placeholder:'Что хочешь отметить для себя сегодня? К чему вернуться, что было сложно, какие хайлайты дня…',
     log_submit:'Записать', cal_label:'Календарь', notes_label:'Все записи',
-    login_sub:'Свой аккаунт — свой прогресс', login_email:'email', login_password:'пароль', login_btn:'Войти', signup_btn:'Создать аккаунт', logout_btn:'Выйти',
+    login_sub:'Свой аккаунт — свой прогресс', login_email:'email', login_password:'пароль', login_btn:'Войти', signup_btn:'Создать аккаунт', logout_btn:'Выйти', forgot_link:'Забыл пароль?',
     pomo_continue:'Продолжить', note_close:'Закрыть', pomo_msg_sub:'Сессия завершена — самое время отметить, что прошёл.',
     source_name_placeholder:"Название источника (например: Anatomy Netter's)",
     source_paste_placeholder:'Вставь текст сюда (оглавление / главы) или загрузи файл ниже',
@@ -863,7 +865,7 @@ const LANG = {
     log_title:'Study Diary', log_lede:'Floating schedule — no fixed hours. Pomodoro sessions log here automatically.',
     log_placeholder:'What do you want to note for yourself today? What to revisit, what was hard, today\'s highlights…',
     log_submit:'Save', cal_label:'Calendar', notes_label:'All Notes',
-    login_sub:'Your own account, your own progress', login_email:'email', login_password:'password', login_btn:'Sign in', signup_btn:'Create account', logout_btn:'Log out',
+    login_sub:'Your own account, your own progress', login_email:'email', login_password:'password', login_btn:'Sign in', signup_btn:'Create account', logout_btn:'Log out', forgot_link:'Forgot password?',
     pomo_continue:'Continue', note_close:'Close', pomo_msg_sub:'Session complete — good time to log what you covered.',
     source_name_placeholder:"Source name (e.g. Anatomy Netter's)",
     source_paste_placeholder:'Paste text here (table of contents / chapters) or upload a file below',
@@ -1766,6 +1768,27 @@ if(signupBtn){
 const logoutBtn = document.getElementById('logout-btn');
 if(logoutBtn){
   logoutBtn.addEventListener('click', ()=>{ if(auth) auth.signOut(); });
+}
+const forgotLink = document.getElementById('login-forgot');
+if(forgotLink){
+  forgotLink.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const errEl = document.getElementById('login-error');
+    errEl.textContent = '';
+    if(!auth){ errEl.textContent = 'Auth недоступен'; return; }
+    if(!email){
+      errEl.textContent = uiLang==='ru' ? 'Сначала впиши свой email в поле выше' : 'Enter your email in the field above first';
+      return;
+    }
+    auth.sendPasswordResetEmail(email).then(()=>{
+      errEl.style.color = 'var(--teal)';
+      errEl.textContent = uiLang==='ru' ? 'Письмо со сбросом пароля отправлено на '+email : 'Password reset email sent to '+email;
+    }).catch(e=>{
+      errEl.style.color = '';
+      errEl.textContent = uiLang==='ru' ? ('Не удалось отправить: '+e.message) : ('Could not send: '+e.message);
+    });
+  });
 }
 
 function deepMerge(target, source){
