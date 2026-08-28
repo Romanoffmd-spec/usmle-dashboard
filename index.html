@@ -1476,6 +1476,7 @@ async function generateSource(){
     if(pdfFile){
       try{ await savePdfLocally(sourceId, pdfFile); }catch(e){ console.error('local pdf save failed', e); }
     }
+    rebuildSourcesRegistry();
     switchSource(sourceId);
     nameInput.value = '';
     pasteEl.value = '';
