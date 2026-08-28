@@ -549,11 +549,10 @@
     </div>
     <div class="brand-name">LEARNOVA</div>
     <p class="lede" data-i18n="login_sub">Свой аккаунт — свой прогресс</p>
-    <input type="email" id="login-email" data-i18n-placeholder="login_email" placeholder="email" autocomplete="username">
+    <input type="text" id="login-email" data-i18n-placeholder="login_email" placeholder="ник / имя пользователя" autocomplete="username">
     <input type="password" id="login-password" data-i18n-placeholder="login_password" placeholder="пароль" autocomplete="current-password">
     <button class="btn" id="login-submit" data-i18n="login_btn">Войти</button>
     <button class="btn-secondary" id="login-signup" data-i18n="signup_btn">Создать аккаунт</button>
-    <a href="#" id="login-forgot" class="forgot-link" data-i18n="forgot_link">Забыл пароль?</a>
     <div id="login-error"></div>
   </div>
 </div>
@@ -603,8 +602,8 @@
     <div class="note-modal-date" data-i18n="account_settings_title">Настройки аккаунта</div>
     <label class="account-label" data-i18n="account_current_pw">Текущий пароль (для подтверждения)</label>
     <input type="password" id="account-current-pw" autocomplete="current-password">
-    <label class="account-label" data-i18n="account_new_email">Новый email (необязательно)</label>
-    <input type="email" id="account-new-email" autocomplete="email">
+    <label class="account-label" data-i18n="account_new_email">Новый ник (необязательно)</label>
+    <input type="text" id="account-new-email" autocomplete="username">
     <label class="account-label" data-i18n="account_new_pw">Новый пароль (необязательно, от 6 символов)</label>
     <input type="password" id="account-new-pw" autocomplete="new-password">
     <div id="account-error"></div>
@@ -861,7 +860,7 @@ const LANG = {
     log_title:'Дневник сессий', log_lede:'Плавающий график — без фиксированных часов. Помодоро-сессии записываются сюда автоматически.',
     log_placeholder:'Что хочешь отметить для себя сегодня? К чему вернуться, что было сложно, какие хайлайты дня…',
     log_submit:'Записать', cal_label:'Календарь', notes_label:'Все записи',
-    login_sub:'Свой аккаунт — свой прогресс', login_email:'email', login_password:'пароль', login_btn:'Войти', signup_btn:'Создать аккаунт', logout_btn:'Выйти', forgot_link:'Забыл пароль?', account_settings_title:'Настройки аккаунта', account_current_pw:'Текущий пароль (для подтверждения)', account_new_email:'Новый email (необязательно)', account_new_pw:'Новый пароль (необязательно, от 6 символов)', account_save:'Сохранить', account_cancel:'Отмена',
+    login_sub:'Свой аккаунт — свой прогресс', login_email:'ник / имя пользователя', login_password:'пароль', login_btn:'Войти', signup_btn:'Создать аккаунт', logout_btn:'Выйти', forgot_link:'Забыл пароль?', account_settings_title:'Настройки аккаунта', account_current_pw:'Текущий пароль (для подтверждения)', account_new_email:'Новый ник (необязательно)', account_new_pw:'Новый пароль (необязательно, от 6 символов)', account_save:'Сохранить', account_cancel:'Отмена',
     pomo_continue:'Продолжить', note_close:'Закрыть', pomo_msg_sub:'Сессия завершена — самое время отметить, что прошёл.',
     source_name_placeholder:"Название источника (например: Anatomy Netter's)",
     source_paste_placeholder:'Вставь текст сюда (оглавление / главы) или загрузи файл ниже',
@@ -895,7 +894,7 @@ const LANG = {
     log_title:'Study Diary', log_lede:'Floating schedule — no fixed hours. Pomodoro sessions log here automatically.',
     log_placeholder:'What do you want to note for yourself today? What to revisit, what was hard, today\'s highlights…',
     log_submit:'Save', cal_label:'Calendar', notes_label:'All Notes',
-    login_sub:'Your own account, your own progress', login_email:'email', login_password:'password', login_btn:'Sign in', signup_btn:'Create account', logout_btn:'Log out', forgot_link:'Forgot password?', account_settings_title:'Account settings', account_current_pw:'Current password (to confirm)', account_new_email:'New email (optional)', account_new_pw:'New password (optional, 6+ chars)', account_save:'Save', account_cancel:'Cancel',
+    login_sub:'Your own account, your own progress', login_email:'nickname / username', login_password:'password', login_btn:'Sign in', signup_btn:'Create account', logout_btn:'Log out', forgot_link:'Forgot password?', account_settings_title:'Account settings', account_current_pw:'Current password (to confirm)', account_new_email:'New nickname (optional)', account_new_pw:'New password (optional, 6+ chars)', account_save:'Save', account_cancel:'Cancel',
     pomo_continue:'Continue', note_close:'Close', pomo_msg_sub:'Session complete — good time to log what you covered.',
     source_name_placeholder:"Source name (e.g. Anatomy Netter's)",
     source_paste_placeholder:'Paste text here (table of contents / chapters) or upload a file below',
@@ -1736,7 +1735,7 @@ if(auth){
       document.getElementById('login-screen').classList.add('hidden');
       document.body.classList.remove('locked');
       const emailEl = document.getElementById('account-email');
-      if(emailEl) emailEl.textContent = user.email || '';
+      if(emailEl) emailEl.textContent = (user.email || '').replace('@learnova.local','');
       // clean slate before loading this specific user's own cached/remote data,
       // so a previous account's data never bleeds into the newly logged-in one
       state = defaultState();
@@ -1766,31 +1765,36 @@ if(auth){
   setSyncDot('off');
 }
 
+function nicknameToFakeEmail(nick){
+  const clean = nick.trim().toLowerCase().replace(/[^a-z0-9._-]/g,'');
+  return clean + '@learnova.local';
+}
 document.getElementById('login-submit').addEventListener('click', doLogin);
 document.getElementById('login-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 function doLogin(){
-  const email = document.getElementById('login-email').value.trim();
+  const nick = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-password').value;
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
   if(!auth){ errEl.textContent = 'Auth недоступен'; return; }
-  auth.signInWithEmailAndPassword(email, pass).catch(e=>{
-    errEl.textContent = uiLang==='ru' ? 'Неверный email или пароль' : 'Wrong email or password';
+  if(!nick){ errEl.textContent = uiLang==='ru' ? 'Введи ник' : 'Enter a nickname'; return; }
+  auth.signInWithEmailAndPassword(nicknameToFakeEmail(nick), pass).catch(e=>{
+    errEl.textContent = uiLang==='ru' ? 'Неверный ник или пароль' : 'Wrong nickname or password';
   });
 }
 const signupBtn = document.getElementById('login-signup');
 if(signupBtn){
   signupBtn.addEventListener('click', ()=>{
-    const email = document.getElementById('login-email').value.trim();
+    const nick = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-password').value;
     const errEl = document.getElementById('login-error');
     errEl.textContent = '';
     if(!auth){ errEl.textContent = 'Auth недоступен'; return; }
-    if(!email || !pass){
-      errEl.textContent = uiLang==='ru' ? 'Введи email и пароль (от 6 символов)' : 'Enter an email and password (6+ chars)';
+    if(!nick || !pass || pass.length<6){
+      errEl.textContent = uiLang==='ru' ? 'Введи ник и пароль (от 6 символов)' : 'Enter a nickname and password (6+ chars)';
       return;
     }
-    auth.createUserWithEmailAndPassword(email, pass).catch(e=>{
+    auth.createUserWithEmailAndPassword(nicknameToFakeEmail(nick), pass).catch(e=>{
       errEl.textContent = uiLang==='ru' ? ('Не удалось создать аккаунт: '+e.message) : ('Could not create account: '+e.message);
     });
   });
@@ -1817,23 +1821,24 @@ async function submitAccountChanges(){
   const user = auth && auth.currentUser;
   if(!user){ errEl.textContent = uiLang==='ru' ? 'Не авторизован' : 'Not signed in'; return; }
   const currentPw = document.getElementById('account-current-pw').value;
-  const newEmail = document.getElementById('account-new-email').value.trim();
+  const newNick = document.getElementById('account-new-email').value.trim();
   const newPw = document.getElementById('account-new-pw').value;
   if(!currentPw){
     errEl.textContent = uiLang==='ru' ? 'Введи текущий пароль для подтверждения' : 'Enter your current password to confirm';
     return;
   }
-  if(!newEmail && !newPw){
-    errEl.textContent = uiLang==='ru' ? 'Заполни новый email и/или новый пароль' : 'Fill in a new email and/or a new password';
+  if(!newNick && !newPw){
+    errEl.textContent = uiLang==='ru' ? 'Заполни новый ник и/или новый пароль' : 'Fill in a new nickname and/or a new password';
     return;
   }
   try{
     const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPw);
     await user.reauthenticateWithCredential(cred);
+    const newEmail = newNick ? nicknameToFakeEmail(newNick) : null;
     if(newEmail && newEmail !== user.email) await user.updateEmail(newEmail);
     if(newPw) await user.updatePassword(newPw);
     const emailEl = document.getElementById('account-email');
-    if(emailEl) emailEl.textContent = user.email || '';
+    if(emailEl) emailEl.textContent = (user.email || '').replace('@learnova.local','');
     errEl.style.color = 'var(--teal)';
     errEl.textContent = uiLang==='ru' ? 'Готово, изменения сохранены.' : 'Done, changes saved.';
     setTimeout(closeAccountPanel, 1200);
@@ -1841,28 +1846,6 @@ async function submitAccountChanges(){
     errEl.textContent = uiLang==='ru' ? ('Ошибка: '+e.message) : ('Error: '+e.message);
   }
 }
-const forgotLink = document.getElementById('login-forgot');
-if(forgotLink){
-  forgotLink.addEventListener('click', (e)=>{
-    e.preventDefault();
-    const email = document.getElementById('login-email').value.trim();
-    const errEl = document.getElementById('login-error');
-    errEl.textContent = '';
-    if(!auth){ errEl.textContent = 'Auth недоступен'; return; }
-    if(!email){
-      errEl.textContent = uiLang==='ru' ? 'Сначала впиши свой email в поле выше' : 'Enter your email in the field above first';
-      return;
-    }
-    auth.sendPasswordResetEmail(email).then(()=>{
-      errEl.style.color = 'var(--teal)';
-      errEl.textContent = uiLang==='ru' ? 'Письмо со сбросом пароля отправлено на '+email : 'Password reset email sent to '+email;
-    }).catch(e=>{
-      errEl.style.color = '';
-      errEl.textContent = uiLang==='ru' ? ('Не удалось отправить: '+e.message) : ('Could not send: '+e.message);
-    });
-  });
-}
-
 function deepMerge(target, source){
   for(const k in source){
     if(source[k] && typeof source[k] === 'object' && !Array.isArray(source[k])){
