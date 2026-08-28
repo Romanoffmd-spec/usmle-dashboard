@@ -1394,14 +1394,32 @@ async function generateSource(){
     }
     function calibrateStartPage(moduleName, rawStart){
       if(!rawStart || !fullMarkers.length) return rawStart;
-      const windowFrom = Math.max(1, rawStart-40);
-      const windowTo = Math.min(totalPages||rawStart+80, rawStart+80);
+      const windowFrom = Math.max(1, rawStart-120);
+      const windowTo = Math.min(totalPages||rawStart+150, rawStart+150);
+      const nameLower = moduleName.toLowerCase().trim();
+      const words = nameLower.split(/[^a-zа-яё0-9]+/).filter(w=>w.length>=4);
+
+      // Pass 1: look for the module name right at the START of a page — this matches
+      // running section headers (e.g. "Respiratory" printed atop every page of that
+      // section) far more reliably than a stray body-text mention somewhere else in
+      // an unrelated chapter, which was the earlier failure mode.
+      const headerMarkers = fullMarkers.filter(mk => mk.page >= windowFrom && mk.page <= windowTo);
+      for(const mk of headerMarkers){
+        const headerZone = fullBookText.slice(mk.index, mk.index+120).toLowerCase();
+        if(headerZone.includes(nameLower)) return mk.page;
+      }
+      for(const w of words){
+        for(const mk of headerMarkers){
+          const headerZone = fullBookText.slice(mk.index, mk.index+120).toLowerCase();
+          if(headerZone.includes(w)) return mk.page;
+        }
+      }
+
+      // Pass 2: fall back to an anywhere-in-page match within the (now wider) window
       const slice = sliceByPageRange(fullBookText, fullMarkers, windowFrom, windowTo);
       const sliceLower = slice.toLowerCase();
-      const nameLower = moduleName.toLowerCase().trim();
       let idx = sliceLower.indexOf(nameLower);
       if(idx === -1){
-        const words = nameLower.split(/[^a-zа-яё0-9]+/).filter(w=>w.length>=5);
         for(const w of words){ const wi = sliceLower.indexOf(w); if(wi!==-1){ idx = wi; break; } }
       }
       if(idx === -1) return rawStart; // couldn't verify — keep the raw TOC number as last resort
