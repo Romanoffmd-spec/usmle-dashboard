@@ -260,6 +260,18 @@
   #note-overlay.show{display:flex;}
   .note-card{max-width:520px; width:92vw; text-align:left; padding:26px 24px;}
   .note-modal-date{font-family:var(--mono); font-size:18px; font-weight:700; color:var(--teal-deep); margin-bottom:16px; text-align:center;}
+
+  #account-overlay{
+    position:fixed; inset:0; background:rgba(23,50,47,.55); z-index:200; display:none;
+    align-items:center; justify-content:center; padding:20px;
+  }
+  #account-overlay.show{display:flex;}
+  .account-card{max-width:360px; width:92vw; text-align:left; padding:26px 24px;}
+  .account-label{display:block; font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin:12px 0 5px;}
+  .account-card input{width:100%; font-family:var(--sans); font-size:14px; padding:9px 11px; border:1px solid var(--line); border-radius:2px;}
+  #account-error{color:var(--red); font-size:12px; min-height:16px; margin-top:10px;}
+  .account-btn-row{display:flex; gap:10px; margin-top:16px;}
+  .account-btn-row .btn, .account-btn-row .btn-secondary{flex:1;}
   .note-modal-body{max-height:55vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:16px;}
   .note-modal-entry{
     font-size:13.5px; line-height:1.5; white-space:pre-wrap; background:var(--bg);
@@ -580,10 +592,28 @@
     <span><span id="lbl-daysleft">Days left:</span> <b id="days-left">—</b></span>
     <span class="account-widget">
       <span id="account-email"></span>
+      <button class="btn-secondary" id="account-settings-btn" onclick="toggleAccountPanel()" title="Изменить логин/пароль">⚙︎</button>
       <button class="btn-secondary" id="logout-btn" data-i18n="logout_btn">Выйти</button>
     </span>
   </div>
 </header>
+
+<div id="account-overlay">
+  <div class="pomo-card account-card">
+    <div class="note-modal-date" data-i18n="account_settings_title">Настройки аккаунта</div>
+    <label class="account-label" data-i18n="account_current_pw">Текущий пароль (для подтверждения)</label>
+    <input type="password" id="account-current-pw" autocomplete="current-password">
+    <label class="account-label" data-i18n="account_new_email">Новый email (необязательно)</label>
+    <input type="email" id="account-new-email" autocomplete="email">
+    <label class="account-label" data-i18n="account_new_pw">Новый пароль (необязательно, от 6 символов)</label>
+    <input type="password" id="account-new-pw" autocomplete="new-password">
+    <div id="account-error"></div>
+    <div class="account-btn-row">
+      <button class="btn" onclick="submitAccountChanges()" data-i18n="account_save">Сохранить</button>
+      <button class="btn-secondary" onclick="closeAccountPanel()" data-i18n="account_cancel">Отмена</button>
+    </div>
+  </div>
+</div>
 
 <!-- POMODORO -->
 <button id="pomo-btn" onclick="togglePomoPanel()" aria-label="Pomodoro timer">
@@ -831,7 +861,7 @@ const LANG = {
     log_title:'Дневник сессий', log_lede:'Плавающий график — без фиксированных часов. Помодоро-сессии записываются сюда автоматически.',
     log_placeholder:'Что хочешь отметить для себя сегодня? К чему вернуться, что было сложно, какие хайлайты дня…',
     log_submit:'Записать', cal_label:'Календарь', notes_label:'Все записи',
-    login_sub:'Свой аккаунт — свой прогресс', login_email:'email', login_password:'пароль', login_btn:'Войти', signup_btn:'Создать аккаунт', logout_btn:'Выйти', forgot_link:'Забыл пароль?',
+    login_sub:'Свой аккаунт — свой прогресс', login_email:'email', login_password:'пароль', login_btn:'Войти', signup_btn:'Создать аккаунт', logout_btn:'Выйти', forgot_link:'Забыл пароль?', account_settings_title:'Настройки аккаунта', account_current_pw:'Текущий пароль (для подтверждения)', account_new_email:'Новый email (необязательно)', account_new_pw:'Новый пароль (необязательно, от 6 символов)', account_save:'Сохранить', account_cancel:'Отмена',
     pomo_continue:'Продолжить', note_close:'Закрыть', pomo_msg_sub:'Сессия завершена — самое время отметить, что прошёл.',
     source_name_placeholder:"Название источника (например: Anatomy Netter's)",
     source_paste_placeholder:'Вставь текст сюда (оглавление / главы) или загрузи файл ниже',
@@ -865,7 +895,7 @@ const LANG = {
     log_title:'Study Diary', log_lede:'Floating schedule — no fixed hours. Pomodoro sessions log here automatically.',
     log_placeholder:'What do you want to note for yourself today? What to revisit, what was hard, today\'s highlights…',
     log_submit:'Save', cal_label:'Calendar', notes_label:'All Notes',
-    login_sub:'Your own account, your own progress', login_email:'email', login_password:'password', login_btn:'Sign in', signup_btn:'Create account', logout_btn:'Log out', forgot_link:'Forgot password?',
+    login_sub:'Your own account, your own progress', login_email:'email', login_password:'password', login_btn:'Sign in', signup_btn:'Create account', logout_btn:'Log out', forgot_link:'Forgot password?', account_settings_title:'Account settings', account_current_pw:'Current password (to confirm)', account_new_email:'New email (optional)', account_new_pw:'New password (optional, 6+ chars)', account_save:'Save', account_cancel:'Cancel',
     pomo_continue:'Continue', note_close:'Close', pomo_msg_sub:'Session complete — good time to log what you covered.',
     source_name_placeholder:"Source name (e.g. Anatomy Netter's)",
     source_paste_placeholder:'Paste text here (table of contents / chapters) or upload a file below',
@@ -1768,6 +1798,48 @@ if(signupBtn){
 const logoutBtn = document.getElementById('logout-btn');
 if(logoutBtn){
   logoutBtn.addEventListener('click', ()=>{ if(auth) auth.signOut(); });
+}
+function toggleAccountPanel(){
+  document.getElementById('account-current-pw').value = '';
+  document.getElementById('account-new-email').value = '';
+  document.getElementById('account-new-pw').value = '';
+  document.getElementById('account-error').textContent = '';
+  document.getElementById('account-error').style.color = '';
+  document.getElementById('account-overlay').classList.add('show');
+}
+function closeAccountPanel(){
+  document.getElementById('account-overlay').classList.remove('show');
+}
+async function submitAccountChanges(){
+  const errEl = document.getElementById('account-error');
+  errEl.style.color = '';
+  errEl.textContent = '';
+  const user = auth && auth.currentUser;
+  if(!user){ errEl.textContent = uiLang==='ru' ? 'Не авторизован' : 'Not signed in'; return; }
+  const currentPw = document.getElementById('account-current-pw').value;
+  const newEmail = document.getElementById('account-new-email').value.trim();
+  const newPw = document.getElementById('account-new-pw').value;
+  if(!currentPw){
+    errEl.textContent = uiLang==='ru' ? 'Введи текущий пароль для подтверждения' : 'Enter your current password to confirm';
+    return;
+  }
+  if(!newEmail && !newPw){
+    errEl.textContent = uiLang==='ru' ? 'Заполни новый email и/или новый пароль' : 'Fill in a new email and/or a new password';
+    return;
+  }
+  try{
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPw);
+    await user.reauthenticateWithCredential(cred);
+    if(newEmail && newEmail !== user.email) await user.updateEmail(newEmail);
+    if(newPw) await user.updatePassword(newPw);
+    const emailEl = document.getElementById('account-email');
+    if(emailEl) emailEl.textContent = user.email || '';
+    errEl.style.color = 'var(--teal)';
+    errEl.textContent = uiLang==='ru' ? 'Готово, изменения сохранены.' : 'Done, changes saved.';
+    setTimeout(closeAccountPanel, 1200);
+  }catch(e){
+    errEl.textContent = uiLang==='ru' ? ('Ошибка: '+e.message) : ('Error: '+e.message);
+  }
 }
 const forgotLink = document.getElementById('login-forgot');
 if(forgotLink){
