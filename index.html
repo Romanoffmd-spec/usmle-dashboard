@@ -1397,13 +1397,30 @@ async function generateSource(){
       const windowFrom = Math.max(1, rawStart-120);
       const windowTo = Math.min(totalPages||rawStart+150, rawStart+150);
       const nameLower = moduleName.toLowerCase().trim();
+      const nameUpper = moduleName.toUpperCase().trim();
       const words = nameLower.split(/[^a-zа-яё0-9]+/).filter(w=>w.length>=4);
+      const wordsUpper = words.map(w=>w.toUpperCase());
 
-      // Pass 1: look for the module name right at the START of a page — this matches
-      // running section headers (e.g. "Respiratory" printed atop every page of that
-      // section) far more reliably than a stray body-text mention somewhere else in
-      // an unrelated chapter, which was the earlier failure mode.
       const headerMarkers = fullMarkers.filter(mk => mk.page >= windowFrom && mk.page <= windowTo);
+
+      // Pass 1 (strictest, tried first): an ALL-CAPS match right at the top of a page.
+      // Section header pages print the section name in caps in a colored bar (e.g.
+      // "RESPIRATORY"); body text and diagram labels use normal case ("Respiratory
+      // acidosis"), so a case-SENSITIVE caps check reliably tells a real section header
+      // apart from an incidental same-word mention elsewhere (e.g. a Renal-section
+      // acid-base diagram that happens to label a box "Respiratory acidosis").
+      for(const mk of headerMarkers){
+        const zoneRaw = fullBookText.slice(mk.index, mk.index+200);
+        if(zoneRaw.includes(nameUpper)) return mk.page;
+      }
+      for(const wU of wordsUpper){
+        for(const mk of headerMarkers){
+          const zoneRaw = fullBookText.slice(mk.index, mk.index+200);
+          if(zoneRaw.includes(wU)) return mk.page;
+        }
+      }
+
+      // Pass 2: looser case-insensitive match near the top of a page.
       for(const mk of headerMarkers){
         const headerZone = fullBookText.slice(mk.index, mk.index+120).toLowerCase();
         if(headerZone.includes(nameLower)) return mk.page;
@@ -1415,7 +1432,7 @@ async function generateSource(){
         }
       }
 
-      // Pass 2: fall back to an anywhere-in-page match within the (now wider) window
+      // Pass 3: fall back to an anywhere-in-page match within the (now wider) window
       const slice = sliceByPageRange(fullBookText, fullMarkers, windowFrom, windowTo);
       const sliceLower = slice.toLowerCase();
       let idx = sliceLower.indexOf(nameLower);
